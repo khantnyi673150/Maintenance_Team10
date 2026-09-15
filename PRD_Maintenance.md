@@ -52,7 +52,8 @@ Turn a campus repair report into an assigned, trackable work order for staff and
 1. **Issue Submission**: Reporter logs in, inputs location and problem description, receives AI-suggested category or selects one manually, and submits the ticket.
 2. **Dispatch & Assignment**: Maintenance staff views unassigned tickets on the dispatch board and assigns a technician via `POST /work-orders/{id}/assign`.
 3. **Repair Tracking**: Reporter and staff track the ticket as its status moves from `OPEN` to `ASSIGNED` to `IN_PROGRESS`.
-4. **Resolution & Closure**: Staff completes the repair, enters resolution notes, and calls `POST /work-orders/{id}/close` to finalize the work order and trigger downstream notifications.
+4. **Resolution**: Technician completes the repair and submits resolution notes via `POST /work-orders/{id}/resolve`, transitioning the work order to `RESOLVED` status.
+5. **Closure & Notifications**: Staff confirms the resolution and calls `POST /work-orders/{id}/close` to finalize the work order to `CLOSED` status and trigger downstream notifications.
 
 ---
 
@@ -67,8 +68,8 @@ The system shall provide `GET /work-orders` with filters for status and location
 ### FR-03 - Work Order Mutation & Assignment
 The system shall provide `PATCH /work-orders/{id}` for metadata updates and `POST /work-orders/{id}/assign` for assigning a technician ID to an active order.
 
-### FR-04 - Work Order Closure & History
-The system shall provide `POST /work-orders/{id}/close` requiring completion notes and `GET /work-orders/{id}/history` to retrieve an immutable audit trail of state transitions.
+### FR-04 - Work Order Resolution & Closure
+The system shall provide `POST /work-orders/{id}/resolve` for technicians to submit resolution notes and transition to `RESOLVED` status. The system shall provide `POST /work-orders/{id}/close` for staff to finalize the work order to `CLOSED` status and trigger notifications. The system shall provide `GET /work-orders/{id}/history` to retrieve an immutable audit trail of state transitions.
 
 ### FR-05 - AI Issue Classification & Fallback
 The system shall classify free-text problem descriptions into categories using an AI model and automatically fall back to manual category selection if classification fails or has low confidence.
@@ -97,10 +98,10 @@ The platform architecture must operate with 0 THB hosting cost using eligible fr
 ## 7. Business Rules
 
 ### BR-01
-A work order cannot transition to `CLOSED` without an assigned technician and non-empty resolution notes.
+A work order cannot transition to `RESOLVED` without an assigned technician and non-empty resolution notes. A work order cannot transition to `CLOSED` without already being in `RESOLVED` status.
 
 ### BR-02
-Only users with authenticated `staff` role permissions are authorized to execute assignment and closure endpoints.
+Only users with authenticated `staff` role permissions are authorized to execute assignment, resolution, and closure endpoints (`POST /work-orders/{id}/assign`, `POST /work-orders/{id}/resolve`, and `POST /work-orders/{id}/close`).
 
 ### BR-03
 Downstream Helpdesk integrations may create a linked support ticket reference but must never duplicate the work order entity.
