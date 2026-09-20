@@ -38,8 +38,8 @@ This checklist follows the instructor's assignment requirements and uses the too
 - [x] Create the SQL schema or migration file for Supabase PostgreSQL.
 - [x] Run the migration using the selected Supabase database tool.
 - [x] Deploy the schema to the remote Supabase database.
-- [ ] Check that the remote database matches the ER diagram and written schema.
-- [ ] Record the migration/deployment process in the Assignment #3 Markdown document.
+- [x] Check that the remote database matches the ER diagram and written schema.
+- [x] Record the migration/deployment process in the Assignment #3 Markdown document.
 
 ### E. APIs and CRUD Demonstration
 
@@ -52,14 +52,14 @@ This checklist follows the instructor's assignment requirements and uses the too
 - [x] Document closure: `POST /work-orders/{id}/close`.
 - [x] Document archive/delete: `DELETE /work-orders/{id}` (soft-delete using `archived_at`).
 - [x] Document history: `GET /work-orders/{id}/history`.
-- [ ] Prepare an example request for each required CRUD operation.
-- [ ] Prepare the matching example response for each request.
+- [x] Prepare an example request for each required CRUD operation.
+- [x] Prepare the matching example response for each request.
 - [ ] Demonstrate the complete work-order flow from creation through closure.
-- [ ] Add the API requests and responses to the Assignment #3 Markdown document.
+- [x] Add the API requests and responses to the Assignment #3 Markdown document.
 
 ### F. Assignment #3 Documents
 
-- [ ] Create or update the Assignment #3 Markdown document with the database choice, schema, ER diagram, migration/deployment process, APIs, requests, and responses.
+- [x] Create or update the Assignment #3 Markdown document with the database choice, schema, ER diagram, migration/deployment process, APIs, requests, and responses.
 - [ ] Export the completed Assignment #3 document as a PDF.
 - [ ] Submit both the Markdown (`.md`) file and PDF.
 

@@ -410,14 +410,3 @@ The `IN_PROGRESS` step uses `POST /api/work-orders/{id}/in-progress` after assig
 - Closure response: documented above; replace with captured API output when implemented.
 - History response: documented above; replace with captured API output when implemented.
 
-## 6. Completion Checklist
-
-- [ ] Person A adds the SQL migration path and deployment evidence.
-- [x] Person A implements the Next.js API routes and database lifecycle functions.
-- [x] `npm run typecheck` passes.
-- [x] `npm run build` passes and generates all required API routes.
-- [ ] Person A captures real authenticated requests and responses for the evidence section.
-- [ ] Person A confirms the remote schema matches this document.
-- [ ] Person B checks names against `PRD_Maintenance.md` and `architecture.md`.
-- [ ] Person B removes secrets from examples and screenshots.
-- [ ] Both people review the Markdown and exported PDF.
