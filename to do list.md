@@ -11,27 +11,27 @@ This checklist follows the instructor's assignment requirements and uses the too
 
 ### A. Database Choice and Explanation
 
-- [ ] Use **Supabase PostgreSQL**, matching `architecture.md` and the PRD technology choice.
-- [ ] Write why Supabase PostgreSQL is suitable for this project.
-- [ ] Explain the database tool and how the team will use it to create, inspect, and deploy the database.
-- [ ] Explain how the database supports the Next.js application and its API routes.
+- [x] Use **Supabase PostgreSQL**, matching `architecture.md` and the PRD technology choice.
+- [x] Write why Supabase PostgreSQL is suitable for this project.
+- [x] Explain the database tool and how the team will use it to create, inspect, and deploy the database.
+- [x] Explain how the database supports the Next.js application and its API routes.
 
 ### B. Database Schema
 
-- [ ] Create the database schema for `Location`.
-- [ ] Create the database schema for `Category`.
-- [ ] Create the database schema for `WorkOrder`.
-- [ ] Create the database schema for `Assignment`.
-- [ ] Create the database schema for `StatusHistory`.
-- [ ] Include the fields, data types, primary keys, foreign keys, and relationships defined in `PRD_Maintenance.md`.
-- [ ] Include the required database constraints from the PRD, such as non-null fields, foreign keys, and valid status transitions.
-- [ ] Use the PRD work-order statuses: `OPEN`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, and `CLOSED`.
+- [x] Create the database schema for `Location`.
+- [x] Create the database schema for `Category`.
+- [x] Create the database schema for `WorkOrder`.
+- [x] Create the database schema for `Assignment`.
+- [x] Create the database schema for `StatusHistory`.
+- [x] Include the fields, data types, primary keys, foreign keys, and relationships defined in `PRD_Maintenance.md`.
+- [x] Include the required database constraints from the PRD, such as non-null fields, foreign keys, and valid status transitions.
+- [x] Use the PRD work-order statuses: `OPEN`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, and `CLOSED`.
 
 ### C. ER Diagram and Schema Documentation
 
-- [ ] Create an ER diagram for the Supabase PostgreSQL database.
-- [ ] Show the relationships between `Location`, `Category`, `WorkOrder`, `Assignment`, and `StatusHistory`.
-- [ ] Add the ER diagram and a written schema description to the Assignment #3 Markdown document.
+- [x] Create an ER diagram for the Supabase PostgreSQL database.
+- [x] Show the relationships between `Location`, `Category`, `WorkOrder`, `Assignment`, and `StatusHistory`.
+- [x] Add the ER diagram and a written schema description to the Assignment #3 Markdown document.
 
 ### D. Migration and Remote Database
 
@@ -43,15 +43,15 @@ This checklist follows the instructor's assignment requirements and uses the too
 
 ### E. APIs and CRUD Demonstration
 
-- [ ] Provide APIs through the **Next.js API routes** described in `architecture.md`.
-- [ ] Document create: `POST /work-orders`.
-- [ ] Document read: `GET /work-orders` and `GET /work-orders/{id}`.
-- [ ] Document update: `PATCH /work-orders/{id}`.
-- [ ] Document assignment: `POST /work-orders/{id}/assign`.
-- [ ] Document resolution: `POST /work-orders/{id}/resolve`.
-- [ ] Document closure: `POST /work-orders/{id}/close`.
-- [ ] Document archive/delete: `DELETE /work-orders/{id}` (soft-delete using `archived_at`).
-- [ ] Document history: `GET /work-orders/{id}/history`.
+- [x] Provide APIs through the **Next.js API routes** described in `architecture.md`.
+- [x] Document create: `POST /work-orders`.
+- [x] Document read: `GET /work-orders` and `GET /work-orders/{id}`.
+- [x] Document update: `PATCH /work-orders/{id}`.
+- [x] Document assignment: `POST /work-orders/{id}/assign`.
+- [x] Document resolution: `POST /work-orders/{id}/resolve`.
+- [x] Document closure: `POST /work-orders/{id}/close`.
+- [x] Document archive/delete: `DELETE /work-orders/{id}` (soft-delete using `archived_at`).
+- [x] Document history: `GET /work-orders/{id}/history`.
 - [ ] Prepare an example request for each required CRUD operation.
 - [ ] Prepare the matching example response for each request.
 - [ ] Demonstrate the complete work-order flow from creation through closure.

@@ -3,3 +3,7 @@ node_modules/
 .env
 .env.local
 supabase/.temp/
+backend/supabase/.temp/
+backend/supabase/.branches/
+frontend/supabase/.temp/
+frontend/supabase/.branches/
