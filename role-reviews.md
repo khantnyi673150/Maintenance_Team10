@@ -8,7 +8,7 @@ The PRD clearly identifies the maintenance problem, users, and core journey. The
 ### Findings
 | ID | PRD section | Issue or question | Why it matters | Severity | Recommended change |
 |---|---|---|---|---|---|
-| PM-01 | Scope | The MVP scoedpe is broad enough to include reporting, tracking, dispatch, AI categorization, and webhook publishing. | Too many first-release items may reduce delivery quality within one semester. | Medium | Keep the core journey as submission → assignment → closure, and treat non-essential enhancements as future work. |
+| PM-01 | Scope | The MVP scope is broad enough to include reporting, tracking, dispatch, AI categorization, and webhook publishing. | Too many first-release items may reduce delivery quality within one semester. | Medium | Keep the core journey as submission → assignment → closure, and treat non-essential enhancements as future work. |
 | PM-02 | Acceptance Criteria | The PRD lists high-level acceptance criteria but does not make each one observable enough for testing. | Weak acceptance criteria make completion subjective. | Medium | Add measurable acceptance criteria for create, assign, close, history, and webhook behavior. |
 | PM-03 | Future Improvements | Future improvements are listed, but there is no explicit note that they are not part of the MVP. | Teams may accidentally treat future items as required work. | Low | Mark future improvements as out of scope for the current release. |
 
@@ -89,7 +89,7 @@ The stack is feasible for a 3–5 student team, one semester, and zero budget, b
 
 | Finding ID | Decision | PRD change made | Owner | Reason |
 |---|---|---|---|---|
-| PM-01 | Accept | Keep only the core work-order flow in MVP scope | KHANT NYI NYI AUNG (6731503059) | Avoid scope creep |
+| PM-01 | Modified | Keep the core work-order flow in MVP scope, while retaining AI categorization and signed webhook integration because they are defined in the PRD and required by Assignment #5 | KHANT NYI NYI AUNG (6731503059) | Control scope without omitting assessed requirements |
 | PM-02 | Accept | Expand acceptance criteria to be measurable | KHANT NYI NYI AUNG (6731503059) | Improve testability |
 | UX-01 | Accept | Add loading, error, empty, and permission-denied states | Hein Zaw (6731503055) | Improve usability |
 | UX-02 | Accept | Document manual category fallback interaction | Hein Zaw (6731503055) | Prevent user confusion |

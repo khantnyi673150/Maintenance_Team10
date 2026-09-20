@@ -21,8 +21,9 @@ Turn a campus repair report into an assigned, trackable work order for staff and
 ### In Scope
 - **3 Core UI Journeys**: Issue reporting, work-order tracking, and staff dispatch board.
 - **REST API Layer**: Full CRUD and lifecycle endpoints for work orders.
-- **Platform Integrations**: Inbound role consumption via Identity Service JWTs and outbound `maintenance.status_changed` webhook event publishing.
-- **AI-Native Flow**: Free-text categorization of issue descriptions with a deterministic fallback asking reporters to select a category.
+- **Platform Integrations**: Supabase Auth JWT verification for `reporter`/`staff` roles and outbound `maintenance.status_changed` webhook event publishing.
+- **AI-Native Flow**: Free-text categorization of issue descriptions with a deterministic fallback asking reporters to select a category. This remains an MVP feature because it is part of the issue-submission journey.
+- **Cross-Group Integration**: Signed `maintenance.status_changed` webhook publishing remains an MVP feature because Assignment #5 requires evidence of the interface between groups.
 - **Automated Quality Gates**: Minimum 7 automated tests covering create, read, status change, assignment, close, history audit, and webhook signatures.
 
 ### Out of Scope
@@ -34,12 +35,12 @@ Turn a campus repair report into an assigned, trackable work order for staff and
 
 ## 3. User Roles and Permissions
 
-### User (Reporter)
+### Reporter
 - Authenticated campus member (student/faculty).
 - Submits issue reports.
 - Views status progression and personal submission history.
 
-### Admin (Maintenance Staff / Dispatcher)
+### Staff (Maintenance Staff / Dispatcher)
 - Authenticated operations personnel.
 - Views the full dispatch board.
 - Assigns technicians, updates repair statuses, and closes work orders with resolution logs.
@@ -50,7 +51,7 @@ Turn a campus repair report into an assigned, trackable work order for staff and
 
 ### Main Journey
 1. **Issue Submission**: Reporter logs in, inputs location and problem description, receives AI-suggested category or selects one manually, and submits the ticket.
-2. **Dispatch & Assignment**: Maintenance staff views unassigned tickets on the dispatch board and assigns a technician via `POST /work-orders/{id}/assign`.
+2. **Dispatch & Assignment**: Staff views unassigned tickets on the dispatch board and assigns a technician via `POST /work-orders/{id}/assign`.
 3. **Repair Tracking**: Reporter and staff track the ticket as its status moves from `OPEN` to `ASSIGNED` to `IN_PROGRESS`.
 4. **Resolution**: Technician completes the repair and submits resolution notes via `POST /work-orders/{id}/resolve`, transitioning the work order to `RESOLVED` status.
 5. **Closure & Notifications**: Staff confirms the resolution and calls `POST /work-orders/{id}/close` to finalize the work order to `CLOSED` status and trigger downstream notifications.
@@ -85,7 +86,7 @@ The system shall dispatch a signed `maintenance.status_changed` webhook payload 
 All core REST API endpoints must respond with p95 under 300 ms. AI categorization must fall back to manual selection if response time exceeds 1500 ms.
 
 ### NFR-02 Security
-Backend routes must independently verify JWT claims and roles (`reporter` vs. `staff`) from the Identity Service. Client-side route guards are never trusted for authorization.
+Backend routes must independently verify JWT claims and roles (`reporter` vs. `staff`) from Supabase Auth. Client-side route guards are never trusted for authorization.
 
 ### NFR-03 Availability
 The platform must maintain high uptime through serverless edge deployment, isolating outbound webhook dispatch failures from blocking main database transactions.
@@ -101,10 +102,13 @@ The platform architecture must operate with 0 THB hosting cost using eligible fr
 A work order cannot transition to `RESOLVED` without an assigned technician and non-empty resolution notes. A work order cannot transition to `CLOSED` without already being in `RESOLVED` status.
 
 ### BR-02
-Only users with authenticated `staff` role permissions are authorized to execute assignment, resolution, and closure endpoints (`POST /work-orders/{id}/assign`, `POST /work-orders/{id}/resolve`, and `POST /work-orders/{id}/close`).
+Only users with authenticated `staff` role permissions are authorized to execute assignment, resolution, closure, and archive endpoints (`POST /work-orders/{id}/assign`, `POST /work-orders/{id}/resolve`, `POST /work-orders/{id}/close`, and `DELETE /work-orders/{id}`).
 
 ### BR-03
 Downstream Helpdesk integrations may create a linked support ticket reference but must never duplicate the work order entity.
+
+### BR-04
+`DELETE /work-orders/{id}` archives a work order by setting `archived_at`; it does not physically delete the record, so the immutable status history and audit trail are preserved.
 
 ---
 
@@ -132,6 +136,7 @@ Downstream Helpdesk integrations may create a linked support ticket reference bu
 - `status` (ENUM: `OPEN`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`)
 - `created_at` (TIMESTAMP)
 - `updated_at` (TIMESTAMP)
+- `archived_at` (TIMESTAMP, nullable)
 
 ### Assignment
 - `id` (UUID, Primary Key)
@@ -256,9 +261,15 @@ AI classification service and downstream webhook consumers.
 `POST /work-orders/{id}/assign` assigns a staff member.
 
 ### API-05
-`POST /work-orders/{id}/close` closes a work order.
+`POST /work-orders/{id}/resolve` records resolution notes and transitions a work order to `RESOLVED`.
 
 ### API-06
+`POST /work-orders/{id}/close` closes a work order after it has been resolved.
+
+### API-07
+`DELETE /work-orders/{id}` archives a work order by setting `archived_at` without removing its audit history.
+
+### API-08
 `GET /work-orders/{id}/history` returns audit history.
 
 ---
@@ -331,7 +342,7 @@ Deploy the Next.js app to Vercel and use Supabase for database and authenticatio
 
 ### MVP is complete when:
 - Reporters can submit work orders.
-- Staff can assign and close work orders.
+- Staff can assign work orders, technicians can resolve them, and staff can close them.
 - Work-order status history is recorded.
 - AI fallback works when classification fails.
 - Signed webhook events are emitted on status changes.

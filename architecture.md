@@ -39,7 +39,7 @@ The platform uses a simple monolithic Next.js architecture. The client and backe
 Next.js app for issue submission, tracking, and staff dispatch board.
 
 ### Backend/API
-Next.js API routes for authentication checks, work-order CRUD, assignment, closure, and audit history.
+Next.js API routes for authentication checks, work-order CRUD, assignment, resolution, closure, archiving, and audit history.
 
 ### Database
 Supabase PostgreSQL stores locations, categories, work orders, assignments, and status history.
