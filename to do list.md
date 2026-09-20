@@ -35,9 +35,9 @@ This checklist follows the instructor's assignment requirements and uses the too
 
 ### D. Migration and Remote Database
 
-- [ ] Create the SQL schema or migration file for Supabase PostgreSQL.
-- [ ] Run the migration using the selected Supabase database tool.
-- [ ] Deploy the schema to the remote Supabase database.
+- [x] Create the SQL schema or migration file for Supabase PostgreSQL.
+- [x] Run the migration using the selected Supabase database tool.
+- [x] Deploy the schema to the remote Supabase database.
 - [ ] Check that the remote database matches the ER diagram and written schema.
 - [ ] Record the migration/deployment process in the Assignment #3 Markdown document.
 

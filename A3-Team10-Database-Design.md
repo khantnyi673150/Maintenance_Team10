@@ -151,12 +151,14 @@ erDiagram
 - Migration file: `supabase/migrations/001_initial_schema.sql`
 - API migration file: `supabase/migrations/002_api_policies_and_lifecycle.sql`
 - Atomic lifecycle migration file: `supabase/migrations/003_atomic_create_and_start.sql`
+- API test data migration file: `supabase/migrations/004_seed_api_test_data.sql`
+- API test UUID correction migration file: `supabase/migrations/005_fix_api_test_uuid_values.sql`
 - Migration date: `2026-09-20`
-- Tool used: Supabase SQL Editor
-- Execution result: Success; Supabase returned `No rows returned`.
-- CLI synchronization: Migration `001` was marked as applied, and `supabase db push` reported `Remote database is up to date.`
-- API migration deployment: Migration `002_api_policies_and_lifecycle.sql` was applied successfully with `supabase db push`.
-- Atomic lifecycle deployment: Migration `003_atomic_create_and_start.sql` was applied successfully with `supabase db push`.
+- Tool used: Supabase CLI against the linked hosted project
+- Migration command: `npx supabase db push --linked`
+- Seed command: `npx supabase db query --linked --file .\supabase\seed.sql`
+- Execution result: Success; the hosted database reported that it was up to date.
+- CLI migration status: Migrations `001` through `005` match between local and remote.
 - Remote verification: Supabase Table Editor shows `assignments`, `categories`, `locations`, `status_history`, and `work_orders` in the `public` schema.
 
 ### Deployment evidence
@@ -166,6 +168,7 @@ The following verification has been completed:
 1. The five tables appear in Supabase Table Editor.
 2. A Table Editor screenshot was captured as deployment evidence.
 3. The remote table names match this document and the ER diagram.
+4. The hosted seed file was executed through the Supabase CLI without using Docker.
 
 Do not include Supabase keys, passwords, JWTs, or other secrets in this document.
 
@@ -187,6 +190,10 @@ The API is implemented in `backend/app/api/work-orders` with Next.js App Router 
 | History | `GET /api/work-orders/{id}/history` |
 
 For each route, add the method, URL, relevant headers, request body, response status, response body, and an error example where applicable. Use redacted example IDs and tokens.
+
+### API-console verification completed
+
+The frontend API console was used with the hosted Supabase project. A signed-in Reporter account successfully sent `GET /api/work-orders`, and the backend returned `200 OK` with seeded work-order data. The remaining route examples and the complete lifecycle still require individual request/response evidence.
 
 ### Authentication Header
 
