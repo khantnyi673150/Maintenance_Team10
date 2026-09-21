@@ -76,9 +76,9 @@ This checklist follows the instructor's assignment requirements and uses the too
 ### B. Required Evidence
 
 - [x] **Consumer Proof:** record the provider URL, request timestamp, and response body.
-- [ ] **Provider Proof:** record the endpoint URL, internal request log, and partner confirmation.
+- [x] **Provider Proof:** record the endpoint URL, internal request log, and partner confirmation.
 - [x] **Webhook Receiver:** record the incoming payload, secret-verification result, and stored log.
-- [ ] **Webhook Sender:** record the internal trigger action, outgoing payload, and partner response log.
+- [x] **Webhook Sender:** record the internal trigger action, outgoing payload, and partner response log.
 - [x] **Idempotency Proof:** compare request 1 and request 2, and show database proof that only one record was created.
 - [ ] **Degradation Proof:** record the timeout or failure timestamp, fallback JSON output, and automatic recovery log.
 
