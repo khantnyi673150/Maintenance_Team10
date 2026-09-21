@@ -75,12 +75,20 @@ This checklist follows the instructor's assignment requirements and uses the too
 
 ### B. Required Evidence
 
-- [ ] **Consumer Proof:** record the provider URL, request timestamp, and response body.
+- [x] **Consumer Proof:** record the provider URL, request timestamp, and response body.
 - [ ] **Provider Proof:** record the endpoint URL, internal request log, and partner confirmation.
-- [ ] **Webhook Receiver:** record the incoming payload, secret-verification result, and stored log.
+- [x] **Webhook Receiver:** record the incoming payload, secret-verification result, and stored log.
 - [ ] **Webhook Sender:** record the internal trigger action, outgoing payload, and partner response log.
 - [x] **Idempotency Proof:** compare request 1 and request 2, and show database proof that only one record was created.
 - [ ] **Degradation Proof:** record the timeout or failure timestamp, fallback JSON output, and automatic recovery log.
+
+**Provider Proof note:** Team 10 reached Team 12's webhook endpoint, but Team 12
+returned `400 INVALID_WEBHOOK_EVENT`. Ask Team 12 to confirm the accepted event
+type and payload contract, then rerun the sender test and capture a successful
+response plus Team 12's partner log before marking this item complete.
+
+**Degradation Proof note:** Failure and recovery timestamps are recorded, but
+fallback JSON and an automatic recovery log are still required by the rubric.
 
 ### C. Assignment #5 Document
 

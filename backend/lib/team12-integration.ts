@@ -9,6 +9,9 @@ const partnerWebhookUrl =
   process.env.TEAM12_PARTNER_WEBHOOK_URL ??
   "https://pd-project-events-clubs.onrender.com/webhooks/partner";
 
+let lastSuccessAt: string | null = null;
+let lastSuccessfulActivities: unknown = null;
+
 function requiredSecret(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -34,6 +37,60 @@ export async function fetchTeam12Activities(limit = 20): Promise<unknown> {
   }
 
   return body;
+}
+
+export async function fetchTeam12ActivitiesWithRetry(limit = 20) {
+  const requestId = randomUUID();
+  const retryDelays = [0, 1000, 2000];
+  let lastError = "Team 12 is unavailable";
+
+  for (const [attempt, delay] of retryDelays.entries()) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+
+    try {
+      const data = await fetchTeam12Activities(limit);
+      const recovered = attempt > 0;
+      lastSuccessfulActivities = data;
+      lastSuccessAt = new Date().toISOString();
+      console.info("Team 12 activity fetch recovered", {
+        requestId,
+        attempt: attempt + 1,
+        recovered,
+        lastSuccessAt,
+      });
+      return {
+        status: "ok" as const,
+        data,
+        stale: false,
+        lastSuccessAt,
+        requestId,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Team 12 is unavailable";
+      console.warn("Team 12 activity fetch retry failed", {
+        requestId,
+        attempt: attempt + 1,
+        error: lastError,
+      });
+    }
+  }
+
+  console.error("Team 12 activity fetch degraded", {
+    requestId,
+    reason: "PARTNER_UNAVAILABLE",
+    retryAfterSeconds: 30,
+    error: lastError,
+  });
+
+  return {
+    status: "degraded" as const,
+    data: lastSuccessfulActivities,
+    stale: lastSuccessfulActivities !== null,
+    lastSuccessAt,
+    reason: "PARTNER_UNAVAILABLE",
+    retryAfterSeconds: 30,
+    requestId,
+  };
 }
 
 export async function dispatchTeam12StatusChanged(input: {
