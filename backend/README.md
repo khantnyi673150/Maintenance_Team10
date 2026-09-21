@@ -38,7 +38,13 @@ The database is hosted in Supabase. The backend and frontend run locally:
    NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-or-publishable-key>
    FRONTEND_ORIGINS=http://localhost:3001
+   SUPABASE_SERVICE_ROLE_KEY=<server-only-secret-key>
    ```
+
+   The `SUPABASE_SERVICE_ROLE_KEY` is server-only and is required by the Team 12
+   webhook receiver. Find it in Supabase Dashboard → Project Settings → API →
+   Secret keys (or the legacy `service_role` key). Never expose it in frontend
+   code, screenshots, GitHub, or chat.
 
    Do not commit `.env.local` or share passwords and access tokens in the repository.
 
@@ -59,6 +65,7 @@ For a new Supabase project, open the Supabase Dashboard SQL Editor and run the m
 3. `supabase/migrations/003_atomic_create_and_start.sql`
 4. `supabase/migrations/004_seed_api_test_data.sql`
 5. `supabase/migrations/005_fix_api_test_uuid_values.sql`
+6. `supabase/migrations/006_partner_webhook_events.sql`
 
 The current repository uses legacy numeric migration names. If `npx supabase db push` reports that remote migration versions are missing locally, use the SQL Editor procedure above instead of repairing or deleting remote migration history. The final seed migration adds the valid API-console location and category IDs.
 
@@ -125,6 +132,41 @@ Authorization: Bearer <supabase-access-token>
 The token user must have `role: reporter` or `role: staff` in Supabase Auth metadata. Staff-only routes enforce the role on the server. CORS allows the configured `FRONTEND_ORIGINS` values.
 
 The separate API test client is in `../frontend` and runs on port `3001`.
+
+### Production deployment
+
+The backend and frontend are separate Vercel projects. Run these commands from
+PowerShell. Enter secret values directly when Vercel prompts; do not paste them
+into Markdown files.
+
+```powershell
+# Deploy the backend from Maintenance_Team10/backend
+npx vercel login
+npx supabase db push --linked
+npx vercel env add SUPABASE_SERVICE_ROLE_KEY production --type secret
+npx vercel --prod
+# Backend production URL:
+# https://maintenanceteam10.vercel.app
+
+# Deploy the frontend from Maintenance_Team10/frontend
+cd ..\frontend
+npx vercel env add NEXT_PUBLIC_API_BASE_URL production
+# Enter: https://maintenanceteam10.vercel.app/api
+the# Frontend production URL:
+# https://frontend-orcin-seven-56.vercel.app
+```
+
+After deployment, verify:
+
+```powershell
+Invoke-WebRequest https://maintenanceteam10.vercel.app/api/health
+```
+
+The Team 10 provider endpoint is
+`GET https://maintenanceteam10.vercel.app/api/partner/health` with
+`X-Partner-Key`. The Team 10 webhook receiver is
+`POST https://maintenanceteam10.vercel.app/api/integrations/team12/webhook`
+with `X-Webhook-Secret` and `X-Event-ID`.
 
 ## Validation
 

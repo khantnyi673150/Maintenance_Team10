@@ -5,6 +5,7 @@ import {
   assignWorkOrderSchema,
   type AssignWorkOrderInput,
 } from "@/lib/work-order-schemas";
+import { dispatchStatusChangedWithoutBlocking } from "@/lib/team12-integration";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -23,5 +24,10 @@ export async function POST(request: Request, context: RouteContext) {
   });
 
   if (error) return supabaseErrorResponse(error);
+  dispatchStatusChangedWithoutBlocking({
+    workOrderId: id,
+    fromStatus: "OPEN",
+    toStatus: "ASSIGNED",
+  });
   return Response.json(data);
 }

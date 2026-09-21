@@ -67,11 +67,11 @@ This checklist follows the instructor's assignment requirements and uses the too
 
 ### A. Integration Based on the Project Architecture
 
-- [ ] Confirm the partner group and the interface connected to this Maintenance project.
-- [ ] Use the project webhook event name: `maintenance.status_changed`.
-- [ ] Document the webhook sender in the Next.js backend/API layer.
-- [ ] Document the webhook receiver or partner endpoint.
-- [ ] Use the architecture-described HMAC-SHA256 signature for webhook verification.
+- [x] Confirm the partner group and the interface connected to this Maintenance project.
+- [x] Use the project webhook event name: `maintenance.status_changed`.
+- [x] Document the webhook sender in the Next.js backend/API layer.
+- [x] Document the webhook receiver or partner endpoint.
+- [x] Use the architecture-described HMAC-SHA256 signature for webhook verification.
 
 ### B. Required Evidence
 
@@ -79,15 +79,15 @@ This checklist follows the instructor's assignment requirements and uses the too
 - [ ] **Provider Proof:** record the endpoint URL, internal request log, and partner confirmation.
 - [ ] **Webhook Receiver:** record the incoming payload, secret-verification result, and stored log.
 - [ ] **Webhook Sender:** record the internal trigger action, outgoing payload, and partner response log.
-- [ ] **Idempotency Proof:** compare request 1 and request 2, and show database proof that only one record was created.
+- [x] **Idempotency Proof:** compare request 1 and request 2, and show database proof that only one record was created.
 - [ ] **Degradation Proof:** record the timeout or failure timestamp, fallback JSON output, and automatic recovery log.
 
 ### C. Assignment #5 Document
 
-- [ ] Create `A5-TeamName-Integration-Evidence.md`.
-- [ ] Include all six evidence sections: Consumer Proof, Provider Proof, Webhook Receiver, Webhook Sender, Idempotency Proof, and Degradation Proof.
+- [x] Create `A5-Team10-Integration-Evidence.md`.
+- [x] Include all six evidence sections: Consumer Proof, Provider Proof, Webhook Receiver, Webhook Sender, Idempotency Proof, and Degradation Proof.
 - [ ] Add screenshots, logs, request/response examples, and timestamps as evidence.
-- [ ] Remove secrets such as Supabase keys, HMAC signing secrets, JWTs, and passwords from screenshots and examples.
+- [x] Remove secrets such as Supabase keys, HMAC signing secrets, JWTs, and passwords from screenshots and examples.
 
 ## Markdown Consistency Check
 

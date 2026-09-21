@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const allowedMethods = "GET,POST,PATCH,DELETE,OPTIONS";
-const allowedHeaders = "Authorization, Content-Type";
+const allowedHeaders =
+  "Authorization, Content-Type, X-Partner-Key, X-Webhook-Secret, X-Webhook-Signature, X-Event-ID";
 
 function allowedOrigin(request: NextRequest): string {
   const origin = request.headers.get("origin");

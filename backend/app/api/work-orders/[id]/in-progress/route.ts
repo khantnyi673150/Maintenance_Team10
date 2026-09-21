@@ -1,6 +1,7 @@
 import { createRequestSupabaseClient } from "@/lib/supabase-server";
 import { supabaseErrorResponse } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
+import { dispatchStatusChangedWithoutBlocking } from "@/lib/team12-integration";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -15,5 +16,10 @@ export async function POST(request: Request, context: RouteContext) {
   });
 
   if (error) return supabaseErrorResponse(error);
+  dispatchStatusChangedWithoutBlocking({
+    workOrderId: id,
+    fromStatus: "ASSIGNED",
+    toStatus: "IN_PROGRESS",
+  });
   return Response.json(data);
 }
