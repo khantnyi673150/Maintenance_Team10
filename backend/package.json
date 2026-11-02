@@ -5,6 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/platform-suite.test.ts",
+    "test:unit": "node --experimental-strip-types --test tests/platform-suite.test.ts",
     "lint": "next lint"
   },
   "dependencies": {
