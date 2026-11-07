@@ -66,6 +66,7 @@ For a new Supabase project, open the Supabase Dashboard SQL Editor and run the m
 4. `supabase/migrations/004_seed_api_test_data.sql`
 5. `supabase/migrations/005_fix_api_test_uuid_values.sql`
 6. `supabase/migrations/006_partner_webhook_events.sql`
+7. `supabase/migrations/007_work_order_integration_fields.sql`
 
 The current repository uses legacy numeric migration names. If `npx supabase db push` reports that remote migration versions are missing locally, use the SQL Editor procedure above instead of repairing or deleting remote migration history. The final seed migration adds the valid API-console location and category IDs.
 
