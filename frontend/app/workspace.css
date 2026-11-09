@@ -141,3 +141,24 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 @media (max-width: 440px) {
   .request-extra-filters, .review-actions { grid-template-columns: minmax(0, 1fr); }
 }
+.identity-test { display: grid; gap: 20px; max-width: 860px; }
+.identity-test-intro { display: flex; align-items: flex-start; gap: 13px; }
+.identity-test-icon { display: grid; place-items: center; flex: 0 0 44px; height: 44px; border-radius: 11px; color: #276247; background: #e8f2eb; }
+.identity-test-intro h2 { margin: 0 0 5px; font-size: 19px; }
+.identity-test-intro p { margin: 0; color: #6f6873; font-size: 13px; line-height: 1.6; }
+.identity-test-notice { padding: 13px 15px; border: 1px solid #ead8ac; border-radius: 9px; background: #fff9eb; color: #665027; font-size: 13px; line-height: 1.65; }
+.identity-test-notice code { font-size: 12px; }
+.identity-test-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: end; padding: 18px; border: 1px solid #e6e3e0; border-radius: 12px; background: #fff; }
+.identity-test-form .field { margin: 0; }
+.identity-test-form label { display: block; margin-bottom: 7px; color: #55545b; font-size: 13px; font-weight: 600; }
+.identity-test-form input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #d8d4d0; border-radius: 7px; font: inherit; }
+.identity-test-form .send-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: auto; min-height: 44px; margin: 0; padding: 10px 16px; white-space: nowrap; }
+.identity-test-error { display: flex; align-items: flex-start; gap: 10px; padding: 14px; border: 1px solid #edc8c4; border-radius: 9px; background: #fff3f2; color: #8e2530; font-size: 13px; line-height: 1.6; }
+.identity-test-error svg { flex: 0 0 auto; margin-top: 2px; }
+.identity-test-error p { margin: 0; }
+.identity-test-result { padding: 18px; border: 1px solid #e6e3e0; border-radius: 12px; background: #fff; }
+.identity-test-result-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.identity-test-result-heading h3 { margin: 0; font-size: 16px; }
+.identity-test-result-heading span { padding: 4px 9px; border-radius: 999px; background: #e8f2eb; color: #276247; font-size: 12px; font-weight: 650; }
+.identity-test-result pre { max-height: 460px; overflow: auto; margin: 12px 0 0; padding: 14px; border-radius: 8px; background: #f7f6f4; color: #29262b; font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 620px) { .identity-test-form { grid-template-columns: minmax(0, 1fr); } .identity-test-form .send-button { width: 100%; } }

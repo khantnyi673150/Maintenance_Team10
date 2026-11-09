@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 const allowedMethods = "GET,POST,PATCH,DELETE,OPTIONS";
 const allowedHeaders =
-  "Authorization, Content-Type, X-Partner-Key, X-Maintenance-Category, X-Webhook-Secret, X-Webhook-Signature, X-Event-ID, X-Event-Sequence, X-Event-Version, X-Idempotency-Key, Idempotency-Key";
+  "Authorization, Content-Type, X-Correlation-Id, X-Partner-Key, X-Maintenance-Category, X-Webhook-Secret, X-Webhook-Signature, X-Event-ID, X-Event-Sequence, X-Event-Version, X-Idempotency-Key, Idempotency-Key";
 
 function allowedOrigin(request: NextRequest): string | null {
   const origin = request.headers.get("origin");

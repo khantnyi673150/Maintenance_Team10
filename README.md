@@ -52,6 +52,8 @@ Built for **Mae Fah Luang University (MFU)** — **Course 1305308 Platform Devel
 
 See [`architecture.md`](./architecture.md) for the detailed component breakdown and failure-handling topology.
 
+See [`STUDENT_IDENTITY_INTEGRATION.md`](./STUDENT_IDENTITY_INTEGRATION.md) for the Student Identity claims integration, setup, migration, and testing steps.
+
 ---
 
 ## Repository Structure

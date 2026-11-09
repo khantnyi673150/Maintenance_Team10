@@ -20,6 +20,11 @@ Set the Supabase URL and anon/publishable key in `.env.local`. Sign in with your
 
 Protected requests use the current Supabase browser session. Real account roles always come from administrator-controlled `app_metadata.role`.
 
+Staff and administrators have an **Identity test** view for reading a consenting
+student's claims through the backend. Set `STUDENT_IDENTITY_API_KEY` only in
+`backend/.env.local`; never expose it in the frontend. The view is for testing,
+does not link a student ID to a reporter account, and may display personal data.
+
 ## Password recovery
 
 The sign-in page links to `/forgot-password`. Supabase emails the reset link and returns the user to `/reset-password`, where a valid authenticated recovery session is required to update the password. Passwords are never stored in this repository. The page handles expired links, mismatched passwords, weak-password errors and duplicate submissions.

@@ -18,12 +18,13 @@ type PublicTicket = {
   title: string;
   description: string;
   status: keyof typeof statuses;
+  student_identity_status?: "identified" | "not_identified" | "not_checked";
   updated_at: string;
   category: { name: string };
   location: { building: string | null; floor_room: string | null };
 };
 
-const emptyForm = { title: "", description: "", category: "", location: "" };
+const emptyForm = { title: "", description: "", category: "", location: "", student_id: "", ticketRef: "" };
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
 
 export default function PublicReporterDashboard() {
@@ -35,6 +36,7 @@ export default function PublicReporterDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedReference, setSubmittedReference] = useState<string | null>(null);
+  const [submittedIdentity, setSubmittedIdentity] = useState<{ status: "identified" | "not_identified"; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [detailReference, setDetailReference] = useState<string | null>(null);
@@ -92,11 +94,17 @@ export default function PublicReporterDashboard() {
     setSubmitting(true);
     setSubmitError(null);
     setSubmittedReference(null);
+    setSubmittedIdentity(null);
     try {
       const response = await fetch(apiBase + "/public/work-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, category: form.category === "Unknown" ? null : form.category }),
+        body: JSON.stringify({
+          ...form,
+          student_id: form.student_id.trim() || undefined,
+          ticketRef: form.ticketRef.trim() || undefined,
+          category: form.category === "Unknown" ? null : form.category,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error?.message ?? "Couldn’t send your request.");
@@ -104,6 +112,12 @@ export default function PublicReporterDashboard() {
         throw new Error("Couldn’t confirm the request. Check the tracker before sending again.");
       }
       setSubmittedReference(result.data.reference_number);
+      setSubmittedIdentity({
+        status: result.student_identity?.status === "identified" ? "identified" : "not_identified",
+        message: typeof result.student_identity?.message === "string"
+          ? result.student_identity.message
+          : "Student identity was not confirmed; the report was still saved.",
+      });
       setForm(emptyForm);
     } catch (failure) {
       setSubmitError(failure instanceof Error ? failure.message : "Couldn’t send your request.");
@@ -131,6 +145,9 @@ export default function PublicReporterDashboard() {
           <CheckCircle2 size={20} aria-hidden="true" />
           <div><strong>Request sent</strong><p>Reference {submittedReference}</p></div>
           <button type="button" className="overview-link" onClick={() => trackSubmission(submittedReference)}>Track request<ArrowRight size={16} aria-hidden="true" /></button>
+          {submittedIdentity && <div className={`public-identity-result ${submittedIdentity.status}`}>
+            <strong>{submittedIdentity.status === "identified" ? "Student ID claims verified" : "Student ID claims not verified"}</strong>
+          </div>}
         </div>}
         <form onSubmit={submitTicket} aria-busy={submitting}>
           <fieldset className="public-fields" disabled={submitting}>
@@ -140,6 +157,16 @@ export default function PublicReporterDashboard() {
             <div className="report-select-grid">
               <div className="field"><label htmlFor="public-location">Location</label><input id="public-location" required maxLength={300} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="e.g. C1, Room 204" /></div>
               <div className="field"><label htmlFor="public-category">Category</label><select id="public-category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}><option value="">Choose a category</option>{categories.map((category) => <option key={category}>{category}</option>)}<option value="Unknown">Not sure</option></select></div>
+            </div>
+            <div className="field">
+              <label htmlFor="public-student-id">Student ID <span className="public-optional">(optional)</span></label>
+              <input id="public-student-id" maxLength={100} autoComplete="off" value={form.student_id} onChange={(event) => setForm({ ...form, student_id: event.target.value })} placeholder="Enter your student ID to check" />
+              <p className="field-help">We check the ID's consented claims for student verification and profile completeness. The result is shown on the public request card; the ID and claims are not saved. This verifies the entered ID's claims, not who submitted the report. Do not enter another person's ID.</p>
+            </div>
+            <div className="field">
+              <label htmlFor="public-ticket-ref">Helpdesk ticket reference <span className="public-optional">(optional)</span></label>
+              <input id="public-ticket-ref" maxLength={62} pattern="TKT-[0-9]{1,58}" autoComplete="off" aria-describedby="public-ticket-ref-help" value={form.ticketRef} onChange={(event) => setForm({ ...form, ticketRef: event.target.value })} placeholder="e.g. TKT-00012" />
+              <p id="public-ticket-ref-help" className="field-help">If Helpdesk sent you here, enter the ticket reference they provided.</p>
             </div>
             {submitError && <p className="request-action-error" role="alert">{submitError}</p>}
             <button type="submit" className="send-button">{submitting && <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}{submitting ? "Sending…" : "Send request"}</button>
@@ -165,7 +192,13 @@ export default function PublicReporterDashboard() {
               <span className={"overview-badge " + statuses[ticket.status].badge}>{statuses[ticket.status].label}</span>
             </div>
             <div className="public-ticket-footer">
-              <span>{ticket.category.name} · {ticket.reference_number}</span>
+              <span className="public-ticket-meta">{ticket.category.name} · {ticket.reference_number}
+                <span className={`public-identity-badge ${ticket.student_identity_status ?? "not_checked"}`}>
+                  {ticket.student_identity_status === "identified" ? "Student ID claims verified"
+                    : ticket.student_identity_status === "not_identified" ? "Student ID claims not verified"
+                      : "Student ID not checked"}
+                </span>
+              </span>
               <button type="button" className="overview-link" onClick={() => setDetailReference(ticket.reference_number)}>Details<ArrowRight size={16} aria-hidden="true" /><span className="sr-only"> for {ticket.title}</span></button>
             </div>
           </article>)}
@@ -180,6 +213,9 @@ export default function PublicReporterDashboard() {
           <div><dt>Status</dt><dd>{statuses[detail.status].label}</dd></div>
           <div><dt>Location</dt><dd>{[detail.location.building, detail.location.floor_room].filter(Boolean).join(" · ") || "Location unavailable"}</dd></div>
           <div><dt>Category</dt><dd>{detail.category.name}</dd></div>
+          <div><dt>Student ID claims</dt><dd>{detail.student_identity_status === "identified" ? "Student ID claims verified"
+            : detail.student_identity_status === "not_identified" ? "Student ID claims not verified"
+              : "Student ID not checked"}</dd></div>
           <div><dt>Updated</dt><dd><time dateTime={detail.updated_at}>{new Date(detail.updated_at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok" })}</time></dd></div>
         </dl>
       </AccessibleDialog>}

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { CalendarDays, ClipboardCheck, FileText, LayoutGrid, LogOut, Menu, Plus, Wrench } from "lucide-react";
+import { BadgeCheck, CalendarDays, ClipboardCheck, FileText, LayoutGrid, LogOut, Menu, Plus, Wrench } from "lucide-react";
 import AccessibleDialog from "@/components/accessible-dialog";
 import CampusBrand from "@/components/campus-brand";
 import type { MaintenanceRole } from "@/lib/maintenance-role";
 
-export type WorkspaceTab = "overview" | "tracker" | "report" | "dispatch" | "reviews";
+export type WorkspaceTab = "overview" | "tracker" | "report" | "dispatch" | "reviews" | "identity-test";
 
 const destinations = {
   overview: { label: "Overview", icon: LayoutGrid },
@@ -14,6 +14,7 @@ const destinations = {
   report: { label: "Report an issue", icon: Wrench },
   dispatch: { label: "Dispatch board", icon: CalendarDays },
   reviews: { label: "Manual review", icon: ClipboardCheck },
+  "identity-test": { label: "Identity test", icon: BadgeCheck },
 };
 
 export default function WorkspaceShell({ activeTab, role, name, demo, onNavigate, onSignOut, children, maintenanceCategory }: {
@@ -27,6 +28,7 @@ export default function WorkspaceShell({ activeTab, role, name, demo, onNavigate
   if (role === "reporter") navigation.push("report");
   if (role === "staff" && !isManualReview) navigation.push("dispatch");
   if (role === "admin") navigation.push("reviews");
+  if (role === "staff" || role === "admin") navigation.push("identity-test");
   const roleLabel = role === "staff" ? `${maintenanceCategory ?? "Maintenance"} staff` : role === "admin" ? "Administrator" : "Reporter";
   const title = activeTab === "overview" ? (role === "reporter" ? "My overview" : "Maintenance overview")
     : activeTab === "tracker" && role === "reporter" ? "My requests" : destinations[activeTab].label;

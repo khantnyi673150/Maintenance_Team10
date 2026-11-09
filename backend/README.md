@@ -46,6 +46,12 @@ The database is hosted in Supabase. The backend and frontend run locally:
    Secret keys (or the legacy `service_role` key). Never expose it in frontend
    code, screenshots, GitHub, or chat.
 
+   The optional Student Identity test view uses the server-only
+   `STUDENT_IDENTITY_API_KEY` to read claims for an ID with `profile:read` consent.
+   Configure a rotated key privately in `backend/.env.local`; never put it in the
+   frontend environment. The view is for integration testing only and does not
+   prove that a student ID belongs to the signed-in person who submitted a report.
+
    Do not commit `.env.local` or share passwords and access tokens in the repository.
 
 ### Database setup

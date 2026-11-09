@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { AlertCircle, ArrowRight, CheckCircle2, Clock3, MapPin, RefreshCw, Search, X } from "lucide-react";
-import { STAGES, selectTickets, statusLabel, targetLabel, type StatusUpdate, type CategoryItem, type LocationItem, type WorkOrder } from "@/lib/ticket-view";
+import { STAGES, selectTickets, statusLabel, targetLabel, workOrderLocation, type StatusUpdate, type CategoryItem, type LocationItem, type WorkOrder } from "@/lib/ticket-view";
 import { submitterLabel } from "@/lib/dashboard-view";
 import RepairProgress from "@/components/repair-progress";
 
@@ -60,7 +60,6 @@ export default function TicketList({ orders, categories, locations, loading, err
     {loading && !orders.length ? <div role="status" className="request-empty"><RefreshCw className="animate-spin motion-reduce:animate-none" aria-hidden="true" /><p>Loading your requests…</p></div>
       : !filtered.length && !error ? <div className="request-empty"><h2>{hasFilters ? "No matching requests" : "No requests yet"}</h2><p>{hasFilters ? "Try a different search or clear your filters." : dispatch ? "New requests will appear here when they are reported." : "Report an issue to start tracking a repair."}</p>{!hasFilters && onReport && <button className="send-button" onClick={onReport}>Report an issue</button>}</div>
       : <div className="request-list">{filtered.map((order) => {
-        const loc = locations.find((l) => l.id === order.location_id);
         const cat = categories.find((c) => c.id === order.category_id);
         const target = targetLabel(order, categories, now);
         const busy = busyIds.includes(order.id);
@@ -68,7 +67,7 @@ export default function TicketList({ orders, categories, locations, loading, err
         const update = statusUpdates[order.id];
         return <article key={order.id} id={`${id}-request-${order.id}`} tabIndex={-1} className="request-row compact-request-card" aria-busy={busy}>
           <div className="compact-request-header"><div><h2>{order.title}</h2>{submitterRoles && <span className="submitter-tag">{submitterLabel(submitterRoles[order.id])}</span>}</div><div className="compact-request-tools"><span className={`overview-badge ${order.status}`}>{order.status === "OPEN" ? "Submitted" : statusLabel(order.status)}</span><button type="button" className="overview-link" onClick={() => onHistory(order)}>Details<ArrowRight size={18} aria-hidden="true" /><span className="sr-only"> for {order.title}</span></button></div></div>
-          <div className="compact-request-meta"><div><span><MapPin size={17} strokeWidth={1.75} aria-hidden="true" />{loc ? `${loc.building} · ${loc.floor_room}` : "Location unavailable"}</span><span className="compact-request-category">{cat?.name ?? "Category unavailable"}</span></div><span className={`compact-request-target${target.overdue ? " is-overdue" : ""}${order.status === "CLOSED" ? " is-finished" : ""}`}>{order.status === "CLOSED" ? <CheckCircle2 size={18} strokeWidth={1.75} aria-hidden="true" /> : <Clock3 size={18} strokeWidth={1.75} aria-hidden="true" />}{order.status === "CLOSED" ? "Completed" : order.status === "RESOLVED" ? "Awaiting closure" : target.text}</span></div>
+          <div className="compact-request-meta"><div><span><MapPin size={17} strokeWidth={1.75} aria-hidden="true" />{workOrderLocation(order, locations)}</span><span className="compact-request-category">{cat?.name ?? "Category unavailable"}</span></div><span className={`compact-request-target${target.overdue ? " is-overdue" : ""}${order.status === "CLOSED" ? " is-finished" : ""}`}>{order.status === "CLOSED" ? <CheckCircle2 size={18} strokeWidth={1.75} aria-hidden="true" /> : <Clock3 size={18} strokeWidth={1.75} aria-hidden="true" />}{order.status === "CLOSED" ? "Completed" : order.status === "RESOLVED" ? "Awaiting closure" : target.text}</span></div>
           <RepairProgress status={order.status} />
           {actionErrors[order.id] && <p className="request-action-error" role="alert">{actionErrors[order.id]}</p>}
           <div className="request-status-live" role="status" aria-live="polite" aria-atomic="true">{update && update.expiresAt > Date.now() && <p key={update.noticeId} className="request-status-confirmation" style={{ animationDuration: `${Math.max(0, update.expiresAt - Date.now())}ms` }}><CheckCircle2 size={16} aria-hidden="true" />Status changed to {statusLabel(update.order.status)}.</p>}</div>

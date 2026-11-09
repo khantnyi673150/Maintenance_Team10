@@ -1,0 +1,30 @@
+purpose:
+  stands_in_for: Team 14 Helpdesk webhook acknowledgement endpoint
+  unblocks: Local verification of the real Maintenance sender against success, server error and timeout responses
+assumptions:
+  - id: supplied-contract
+    status: supported
+    claim: The local receiver response cases are derived from Team 14 proposal v0.4.
+    reason: The supplied proposal specifies 200 and 202 acknowledgements, 400 and 401 terminal failures, and retries on 5xx or timeout.
+    verification: Generated the local mock from backend/contracts/helpdesk-webhook.openapi.json; the generated handler replays response codes and does not verify signatures or deduplicate events.
+    source: Helpdesk-Maintenance-Integration-Proposal-v0.4.docx; backend/contracts/helpdesk-webhook.openapi.json
+    updated_at: "2026-11-09"
+  - id: real-sender-scenarios
+    status: supported
+    claim: The real sender returns 200 on acceptance, 500 on server error and a retryable null outcome after a three-second timeout.
+    reason: These are the outcomes the persistent worker records for the tested scenarios.
+    verification: Ran postman simulation on port 4514 and backend/scripts/test-helpdesk-simulation.mjs. The actual sender returned 200 in 51 ms, injected 500 in 5 ms, and null after 3016 ms for a 4500 ms receiver delay. The simulation request log confirmed the accepted POST path, event envelope and signing headers. Injected failures were verified from caller outcomes; the CLI does not log them as mock requests.
+    source: backend/scripts/test-helpdesk-simulation.mjs; backend/lib/helpdesk-delivery.ts
+    updated_at: "2026-11-09"
+  - id: live-compatibility
+    status: unknown
+    claim: Team 14's deployed receiver accepts this sender and the mapped lowercase statuses.
+    reason: No deployed receiver URL or shared credential has been supplied. Owner mock discovery was skipped because the installed CLI does not support postman status and no owning workspace was supplied.
+    verification: No live Helpdesk call has been made. Signature, duplicate ID, database retry scheduling and permissions are covered separately by local Node and isolated PostgreSQL tests.
+    source: backend/tests/helpdesk.test.ts; backend/tests/helpdesk-database.test.mjs
+    updated_at: "2026-11-09"
+fingerprints:
+  - id: local-contract
+    date: "2026-11-09"
+    commit: null
+    cli: "1.73.0"

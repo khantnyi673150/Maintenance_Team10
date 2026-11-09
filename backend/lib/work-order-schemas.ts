@@ -9,6 +9,7 @@ export const partnerReferenceSchema = z.string().trim().min(1).max(200).regex(
   /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/, "Invalid partner reference",
 );
 const descriptionSchema = z.string().trim().min(1).max(10000);
+export const ticketRefSchema = z.string().trim().max(62).regex(/^TKT-[0-9]{1,58}$/, "Helpdesk reference must use TKT- followed by digits");
 
 export const listWorkOrdersQuerySchema = z.object({
   status: z.enum(["OPEN", "ASSIGNED", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional(),
@@ -18,6 +19,7 @@ export const listWorkOrdersQuerySchema = z.object({
 });
 
 export const createWorkOrderSchema = z.object({
+  ticketRef: ticketRefSchema.optional(),
   location_id: uuidSchema,
   description: descriptionSchema,
   category_id: uuidSchema,
@@ -27,10 +29,12 @@ export const createWorkOrderSchema = z.object({
 export const publicWorkOrderStatusSchema = z.enum(["STARTED", "IN_PROGRESS", "FINISHED"]);
 
 export const createPublicWorkOrderSchema = z.object({
+  ticketRef: ticketRefSchema.optional(),
   location: z.string().trim().min(1).max(300),
   description: descriptionSchema,
   category: z.enum(["Plumbing", "Electrical", "HVAC", "Safety"]).nullable(),
   title: z.string().trim().min(1).max(200),
+  student_id: z.string().trim().max(100).optional(),
 }).strict();
 
 export const publicWorkOrderQuerySchema = z.object({
