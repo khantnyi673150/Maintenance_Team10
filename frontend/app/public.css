@@ -66,8 +66,22 @@
 .public-fields :is(input, select, textarea), .public-toolbar :is(input, select) { font-size: 16px; }
 .public-fields :is(input, select), .public-toolbar :is(input, select) { min-height: 44px; }
 .public-fields .field-help { margin: 0; font-size: 13px; }
-.public-category-suggestion { display: flex; flex-wrap: wrap; gap: 8px; }
+.public-category-suggestion { display: grid; justify-items: start; gap: 8px; }
 .public-category-suggestion button { min-height: 44px; }
+.public-category-suggestion [role="status"]:empty { position: absolute; }
+.public-category-result {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fbe9ed;
+  font-size: 14px;
+}
 .public-confirmation { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; margin-bottom: 18px; border-radius: var(--radius); color: #246846; background: #edf7f0; font-size: 14px; }
 .public-confirmation > div { flex: 1 1 130px; min-width: 0; }
 .public-confirmation p { margin: 2px 0 0; overflow-wrap: anywhere; }
