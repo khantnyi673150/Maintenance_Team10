@@ -7,6 +7,7 @@ import {
   createPartnerWorkOrderSchema,
   updatePartnerWorkOrderSchema,
 } from "../lib/work-order-schemas.ts";
+import { assessStudentIdentityClaims, checkStudentIdentity } from "../lib/student-identity.ts";
 
 describe("Platform Unit Tests (Slide 31 Test Pyramid)", () => {
   it("Unit Test 1: enforces valid status transitions and blocks illegal skips", () => {
@@ -124,5 +125,59 @@ describe("Platform Unit Tests (Slide 31 Test Pyramid)", () => {
 
     assert.equal(validBuf.length === expBuf.length && timingSafeEqual(validBuf, expBuf), true);
     assert.equal(invalidBuf.length === expBuf.length && timingSafeEqual(invalidBuf, expBuf), false);
+  });
+
+  it("identifies a student only when both student verification and profile completeness are true", () => {
+    assert.equal(assessStudentIdentityClaims({
+      claims: { student_verified: true, profile_complete: true },
+    }).identified, true);
+    assert.equal(assessStudentIdentityClaims({
+      claims: { student_verified: true, profile_complete: false },
+    }).identified, false);
+    assert.equal(assessStudentIdentityClaims({
+      claims: { email_verified: true, profile_complete: true },
+    }).identified, false);
+    assert.equal(assessStudentIdentityClaims({
+      claims: { verified: true, profile_complete: true },
+    }).identified, true);
+  });
+
+  it("checks consented claims through the Student Identity API with the server key", async () => {
+    const originalFetch = globalThis.fetch;
+    let requestUrl: URL | undefined;
+    let requestKey: string | null = null;
+    globalThis.fetch = async (input, init) => {
+      requestUrl = new URL(String(input));
+      requestKey = new Headers(init?.headers).get("X-API-Key");
+      return Response.json({ claims: { student_verified: true, profile_complete: true } });
+    };
+    try {
+      const result = await checkStudentIdentity("test-student/123", "test-server-key");
+      assert.equal(result.identified, true);
+      assert.equal(requestUrl?.pathname, "/students/test-student%2F123/claims");
+      assert.equal(requestKey, "test-server-key");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("does not claim identification when consent is missing or the API key is unavailable", async () => {
+    const originalFetch = globalThis.fetch;
+    let fetchCalled = false;
+    globalThis.fetch = async () => {
+      fetchCalled = true;
+      return Response.json({}, { status: 403 });
+    };
+    try {
+      const denied = await checkStudentIdentity("test-student", "test-server-key");
+      assert.equal(denied.identified, false);
+      assert.match(denied.message, /consent/);
+      const unconfigured = await checkStudentIdentity("test-student", "replace-with-key");
+      assert.equal(unconfigured.identified, false);
+      assert.match(unconfigured.message, /not configured/);
+      assert.equal(fetchCalled, true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

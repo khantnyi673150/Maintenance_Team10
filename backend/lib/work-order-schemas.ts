@@ -31,6 +31,7 @@ export const createPublicWorkOrderSchema = z.object({
   description: descriptionSchema,
   category: z.enum(["Plumbing", "Electrical", "HVAC", "Safety"]).nullable(),
   title: z.string().trim().min(1).max(200),
+  student_id: z.string().trim().max(100).optional(),
 }).strict();
 
 export const publicWorkOrderQuerySchema = z.object({

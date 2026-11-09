@@ -102,8 +102,19 @@ test("database authorization, atomic audit and partner isolation", async () => {
     const previouslyAssigned = await makeReview();
     await actor(staff, "staff", "select public.assign_work_order($1,$2)", [previouslyAssigned, staff]);
     await db.exec(readFileSync(new URL("../supabase/migrations/013_manual_review_assignment.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("../supabase/migrations/014_public_student_identity_status.sql", import.meta.url), "utf8"));
     const direct = await db.query("select public.create_public_work_order('Leak','Water leaking','Plumbing','Test') as result");
     assert.equal(direct.rows[0].result.classification_status, "classified");
+    assert.equal(direct.rows[0].result.student_identity_status, "not_identified");
+    await assert.rejects(actor(reporter, "reporter",
+      "select public.create_public_work_order('Leak','Water leaking','Plumbing','Test','identified')"));
+    const identified = await partner(
+      "select public.create_public_work_order('Verified leak','Water leaking in the hall','Plumbing','Test','identified') as result",
+    );
+    assert.equal(identified.rows[0].result.student_identity_status, "identified");
+    assert.equal((await db.query("select student_identity_status from public.work_orders where id=$1", [
+      identified.rows[0].result.reference_number,
+    ])).rows[0].student_identity_status, "identified");
     const needsReview = await makeReview();
     assert.equal((await db.query("select classification_status from public.work_orders where id=$1", [needsReview])).rows[0].classification_status, "needs_review");
 

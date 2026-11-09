@@ -1,5 +1,7 @@
 import { errorResponse, readJson, supabaseErrorResponse } from "@/lib/api";
 import { createPublicSupabaseClient } from "@/lib/supabase-public";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { checkStudentIdentity } from "@/lib/student-identity";
 import {
   createPublicWorkOrderSchema,
   publicWorkOrderQuerySchema,
@@ -29,14 +31,32 @@ export async function POST(request: Request) {
   if (parsed.response) return parsed.response;
 
   try {
-    const { data, error } = await createPublicSupabaseClient().rpc("create_public_work_order", {
+    let identityCheck = {
+      identified: false,
+      message: parsed.data!.student_id
+        ? "Student Identity could not be checked; the report was still saved."
+        : "No student ID was provided; the report was still saved.",
+    };
+    if (parsed.data!.student_id) {
+      identityCheck = await checkStudentIdentity(parsed.data!.student_id, process.env.STUDENT_IDENTITY_API_KEY);
+    }
+
+    const { data, error } = await createSupabaseAdminClient().rpc("create_public_work_order", {
       p_title: parsed.data!.title,
       p_description: parsed.data!.description,
       p_category_name: parsed.data!.category,
       p_location: parsed.data!.location,
+      p_student_identity_status: identityCheck.identified ? "identified" : "not_identified",
     });
     if (error) return supabaseErrorResponse(error);
-    return Response.json({ success: true, data }, { status: 201 });
+    return Response.json({
+      success: true,
+      data,
+      student_identity: {
+        status: identityCheck.identified ? "identified" : "not_identified",
+        message: identityCheck.message,
+      },
+    }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch {
     return errorResponse(503, "PUBLIC_DASHBOARD_UNAVAILABLE", "The public dashboard is temporarily unavailable");
   }

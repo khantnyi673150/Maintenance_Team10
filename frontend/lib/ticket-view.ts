@@ -5,6 +5,7 @@ export type CategoryItem = { id: string; name: string; sla_hours: number };
 export interface WorkOrder {
   id: string; reporter_id: string | null; location_id: string; category_id: string;
   title: string; description: string; status: WorkOrderStatus;
+  student_identity_status?: "identified" | "not_identified" | "not_checked";
   resolution_notes?: string | null; created_at: string; updated_at: string;
 }
 export type StatusUpdate = { order: WorkOrder; noticeId: number; expiresAt: number };

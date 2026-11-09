@@ -11,6 +11,9 @@ export default function RequestDetailSummary({ order, categories, locations }: {
       <div className="request-detail-id"><dt>Request ID</dt><dd><code>{order.id}</code></dd></div>
       <div><dt>Location</dt><dd>{location ? `${location.building} · ${location.floor_room}` : "Location unavailable"}</dd></div>
       <div><dt>Category</dt><dd>{category?.name ?? "Category unavailable"}</dd></div>
+      <div><dt>Student ID claims</dt><dd>{order.student_identity_status === "identified" ? "Student ID claims verified"
+        : order.student_identity_status === "not_identified" ? "Student ID claims not verified"
+          : "Student ID not checked"}</dd></div>
       <div><dt>Reported</dt><dd><time dateTime={order.created_at}>{campusDate(order.created_at)}</time></dd></div>
       {Number.isFinite(target) && <div><dt>Repair target</dt><dd><time dateTime={new Date(target).toISOString()}>{campusDate(target)}</time></dd></div>}
     </dl>

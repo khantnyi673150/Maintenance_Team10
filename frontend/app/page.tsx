@@ -17,6 +17,7 @@ import RepairProgress from "@/components/repair-progress";
 import RequestDetailSummary from "@/components/request-detail-summary";
 import PublicReporterDashboard from "@/components/public-reporter-dashboard";
 import AdminReviewPanel from "@/components/admin-review-panel";
+import StudentIdentityTest from "@/components/student-identity-test";
 import type { DashboardData } from "@/lib/dashboard-view";
 import { STAGES, statusLabel, type StatusUpdate, type WorkOrderStatus, type WorkOrder, type LocationItem, type CategoryItem } from "@/lib/ticket-view";
 import {
@@ -647,6 +648,8 @@ export default function MaintenanceApp() {
           <AdminReviewPanel token={token} categories={categories} locations={locations}
             onOpenReview={activeTab === "overview" ? () => setActiveTab("reviews") : undefined} />
         </div>}
+      {activeTab === "identity-test" && (role === "staff" || role === "admin") &&
+        <StudentIdentityTest apiBase={apiBase} accessToken={token} />}
 
       {/* SCREEN 2: REPORT NEW ISSUE FORM */}
       {activeTab === "report" && role === "reporter" && (

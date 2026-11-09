@@ -23,20 +23,27 @@ process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "route-test-public-key";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "route-test-service-key";
 process.env.TEAM10_PARTNER_KEY = "route-test-partner-key";
 process.env.TEAM10_WEBHOOK_SECRET = "route-test-webhook-key";
+process.env.STUDENT_IDENTITY_API_KEY = "route-test-identity-key";
 process.env.FRONTEND_ORIGINS = "http://localhost:3001";
 const originalFetch = globalThis.fetch;
 const events = new Map();
 const databaseCalls = [];
+const identityCalls = [];
 let dashboardCountFailure = false;
+let identityStatus = 200;
 globalThis.fetch = async (input, init) => {
   const request = new Request(input, init);
   const url = new URL(request.url);
+  if (url.hostname === "student-identity.onrender.com") {
+    identityCalls.push({ url, apiKey: request.headers.get("x-api-key") });
+    return Response.json({ studentId: "student-fixture", claims: { verifiedStudent: true } }, { status: identityStatus });
+  }
   assert.equal(url.hostname, "supabase.invalid", "Tests must never contact a live service");
   const token = request.headers.get("authorization")?.replace("Bearer ", "");
   if (url.pathname === "/auth/v1/user") {
-    if (!["reporter-token", "staff-token", "editable-token"].includes(token)) return Response.json({ message: "invalid token" }, { status: 401 });
+    if (!["reporter-token", "staff-token", "admin-token", "editable-token"].includes(token)) return Response.json({ message: "invalid token" }, { status: 401 });
     return Response.json({ id: "00000000-0000-4000-8000-000000000001", email: "fixture@example.invalid",
-      app_metadata: token === "editable-token" ? {} : { role: token === "staff-token" ? "staff" : "reporter" },
+      app_metadata: token === "editable-token" ? {} : { role: token === "staff-token" ? "staff" : token === "admin-token" ? "admin" : "reporter" },
       user_metadata: { role: "staff" },
     });
   }
@@ -83,13 +90,60 @@ const submitters = await load("app/api/work-orders/submitters/route.ts");
 const order = await load("app/api/work-orders/[id]/route.ts");
 const partner = await load("app/api/partner/work-orders/route.ts");
 const webhook = await load("app/api/integrations/team12/webhook/route.ts");
+const studentIdentity = await load("app/api/integrations/student-identity/claims/route.ts");
 const { middleware } = await load("middleware.ts");
 const staffRoutes = await Promise.all(["assign", "in-progress", "start", "resolve", "close"].map((name) => load(`app/api/work-orders/[id]/${name}/route.ts`)));
 const context = { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000010" }) };
 const request = (method, token, body) => new Request("http://localhost/api/work-orders", { method,
   headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" }, body });
 
+const identityRequest = (token, body) => {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return new Request("http://localhost/api/integrations/student-identity/claims", {
+    method: "POST",
+    headers,
+    body,
+  });
+};
+
 describe("Actual route security boundaries", () => {
+  it("allows staff to inspect consented Student Identity claims without exposing the API key", async () => {
+    const before = identityCalls.length;
+    assert.equal((await studentIdentity.POST(identityRequest("reporter-token", '{"studentId":"student-fixture"}'))).status, 403);
+    assert.equal(identityCalls.length, before);
+    assert.equal((await studentIdentity.POST(identityRequest("staff-token", '{"studentId":" " }'))).status, 400);
+    assert.equal(identityCalls.length, before);
+
+    const response = await studentIdentity.POST(identityRequest("staff-token", '{"studentId":"student-fixture"}'));
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("cache-control"), /no-store/);
+    assert.deepEqual((await response.json()).data, { studentId: "student-fixture", claims: { verifiedStudent: true } });
+    assert.equal(identityCalls.length, before + 1);
+    assert.equal(identityCalls.at(-1).apiKey, "route-test-identity-key");
+    assert.equal(identityCalls.at(-1).url.pathname, "/students/student-fixture/claims");
+  });
+  it("reports missing consent or upstream key rejection without leaking provider details", async () => {
+    const before = identityCalls.length;
+    identityStatus = 403;
+    try {
+      const response = await studentIdentity.POST(identityRequest("admin-token", '{"studentId":"student-fixture"}'));
+      assert.equal(response.status, 502);
+      assert.equal((await response.json()).error.code, "IDENTITY_ACCESS_DENIED");
+      assert.equal(identityCalls.length, before + 1);
+    } finally { identityStatus = 200; }
+  });
+  it("fails closed when the Student Identity API key is not configured", async () => {
+    const key = process.env.STUDENT_IDENTITY_API_KEY;
+    const before = identityCalls.length;
+    process.env.STUDENT_IDENTITY_API_KEY = "";
+    try {
+      const response = await studentIdentity.POST(identityRequest("staff-token", '{"studentId":"student-fixture"}'));
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).error.code, "IDENTITY_NOT_CONFIGURED");
+      assert.equal(identityCalls.length, before);
+    } finally { process.env.STUDENT_IDENTITY_API_KEY = key; }
+  });
   it("accepts the existing seeded Plumbing UUID when assigning a category", async () => {
     const categoryId = "22222222-2222-2222-2222-222222222222";
     const patch = (id) => new Request("http://localhost/api/admin/reviews?id=00000000-0000-4000-8000-000000000010", {
