@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, ArrowRight, Building2, CheckCircle2, CircleHelp, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck, Wrench } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { maintenanceRole, workspaceSelections, type WorkspaceSelection } from "@/lib/maintenance-role";
 import { canUseLocalDemo } from "@/lib/local-demo";
+import { CampusHeader } from "@/components/campus-brand";
 
 const accessMessage = "This account is not configured as the admin or maintenance staff account.";
 
@@ -52,7 +53,7 @@ export default function LoginScreen() {
         if (!mounted.current) return;
         if (event === "PASSWORD_RECOVERY") { router.replace("/reset-password"); return; }
         if (maintenanceRole(session?.user) && !sessionStorage.getItem("maintenance-category")) {
-          setError("Choose a workspace role before entering the system.");
+          setError("Choose a workspace to continue.");
           setCheckingSession(false);
           return;
         }
@@ -92,7 +93,7 @@ export default function LoginScreen() {
         if (mounted.current) setError(accessMessage);
       } else if (maintenanceRole(data.user) && !selectedCategory) {
         await client.auth.signOut({ scope: "local" });
-        if (mounted.current) setError("Choose a workspace role before signing in.");
+        if (mounted.current) setError("Choose a workspace to sign in.");
       } else if (maintenanceRole(data.user) === "staff" && selectedCategory !== "Manual Review" && !staffCanUseCategory(data.user.app_metadata, selectedCategory)) {
         await client.auth.signOut({ scope: "local" });
         if (mounted.current) setError("The maintenance staff account is not authorized for that category.");
@@ -113,48 +114,19 @@ export default function LoginScreen() {
 
   return (
     <div className="login-page">
-      <header className="login-header">
-        <div className="login-brand">
-          <span className="login-brand-mark"><Wrench size={22} strokeWidth={1.8} aria-hidden="true" /></span>
-          <div className="login-wordmark"><strong>Campus Maintenance</strong><span>MAE FAH LUANG UNIVERSITY</span></div>
-        </div>
-        <a className="login-help-link" href="#account-access"><CircleHelp size={17} aria-hidden="true" />Account help</a>
-      </header>
-
+      <CampusHeader action={<Link className="btn-switch-role" href="/"><ArrowLeft size={16} aria-hidden="true" />Requests</Link>} />
       <main className="login-main">
-        <section className="login-introduction" aria-labelledby="login-introduction-title">
-          <p className="login-eyebrow"><span />A CAMPUS WE CARE FOR, TOGETHER</p>
-          <h1 id="login-introduction-title">A better campus<span>starts with you.</span></h1>
-          <p className="login-introduction-copy">A broken light. A leaking tap. A room that needs attention. Report it, follow its progress, and get back to campus life.</p>
-
-          <div className="login-workflow" aria-label="Work orders move from open to assigned, in progress, resolved and closed">
-            <div className="login-workflow-heading">
-              <span className="login-building-icon"><Building2 size={27} strokeWidth={1.5} aria-hidden="true" /></span>
-              <div><strong>Campus care, connected.</strong><p>Every request follows a clear path.</p></div>
-              <span className="login-workflow-tag">HOW IT WORKS</span>
-            </div>
-            <ol className="login-workflow-steps">
-              {["Open", "Assigned", "In progress", "Resolved", "Closed"].map((step, index) => (
-                <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>
-              ))}
-            </ol>
-            <p className="login-workflow-note"><CheckCircle2 size={15} aria-hidden="true" />Clear ownership. Updates you can follow.</p>
-          </div>
-          <div className="login-feature-row"><span><CheckCircle2 size={17} aria-hidden="true" />Report and track repairs</span><span><ShieldCheck size={17} aria-hidden="true" />Campus &amp; staff access</span></div>
-        </section>
-
         <section className="login-card" aria-labelledby="login-title">
-          <div className="login-card-heading"><p className="login-card-eyebrow">WELCOME BACK</p><h2 id="login-title">Sign in to your workspace</h2><p>Use your campus maintenance account to continue.</p></div>
-          <form className="login-form" onSubmit={handleSignIn} aria-busy={busy} aria-describedby={error ? "login-error" : "login-account-hint"}>
+          <div className="login-card-heading"><h1 id="login-title">Sign in</h1><p>Access your maintenance workspace.</p></div>
+          <form className="login-form" onSubmit={handleSignIn} aria-busy={busy} aria-describedby={error ? "login-error" : undefined}>
             <fieldset className="login-fields" disabled={busy}>
               <legend className="sr-only">Campus account credentials</legend>
               <div className="login-field login-category-field">
-                <label htmlFor="login-category">Maintenance category</label>
-                <select id="login-category" name="category" value={selectedCategory} onChange={(event) => { setSelectedCategory(event.target.value as WorkspaceSelection | ""); setError(null); }}>
-                  <option value="">Choose your working category</option>
-                  {workspaceSelections.map((category) => <option key={category.value} value={category.value}>{category.value} — {category.description}</option>)}
+                <label htmlFor="login-category">Workspace</label>
+                <select id="login-category" name="category" required value={selectedCategory} onChange={(event) => { setSelectedCategory(event.target.value as WorkspaceSelection | ""); setError(null); }}>
+                  <option value="">Choose a workspace</option>
+                  {workspaceSelections.map((category) => <option key={category.value} value={category.value}>{category.value}</option>)}
                 </select>
-                <p className="login-field-hint">Choose Manual Review for the admin account, or a maintenance category for staff.</p>
               </div>
               <div className="login-field">
                 <label htmlFor="login-email">Email address</label>
@@ -170,13 +142,10 @@ export default function LoginScreen() {
           </form>
           <p className="login-progress sr-only" role="status" aria-live="polite">{checkingSession ? "Checking your existing session." : signingIn ? "Signing you in. Please wait." : ""}</p>
           {error && <div className="login-error" id="login-error" ref={errorRef} role="alert" tabIndex={-1}><AlertCircle size={18} aria-hidden="true" /><p>{error}</p></div>}
-          {localDemoAvailable && <div className="login-demo-access"><strong>Preview without a password</strong><p>Local demo with sample tickets. Changes are disabled.</p><div><button type="button" onClick={() => router.push("/?demo=reporter")}>Student demo</button><button type="button" onClick={() => router.push("/?demo=staff")}>Staff demo</button></div></div>}
-          <div className="login-account-help" id="account-access" tabIndex={-1}><CircleHelp size={19} aria-hidden="true" /><div><strong>Need an account?</strong><p id="login-account-hint">Your campus administrator can arrange access or help you with your sign-in details.</p></div></div>
-          <p className="login-role-note"><ShieldCheck size={14} aria-hidden="true" />Your assigned role determines your workspace.</p>
+          {localDemoAvailable && <div className="login-demo-access"><strong>Local preview</strong><div><button type="button" onClick={() => router.push("/?demo=reporter")}>Reporter demo</button><button type="button" onClick={() => router.push("/?demo=staff")}>Staff demo</button></div></div>}
+          <p className="login-account-note">Need access? Contact your campus administrator.</p>
         </section>
       </main>
-
-      <footer className="login-footer"><span>Mae Fah Luang University</span><span>Campus Facility Maintenance · Team 10</span></footer>
     </div>
   );
 }

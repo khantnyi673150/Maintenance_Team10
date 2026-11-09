@@ -11,7 +11,7 @@ export default function TicketList({ orders, categories, locations, loading, err
   dispatch: boolean; demo: boolean; busyIds: string[]; actionErrors: Record<string, string>; hasMore: boolean;
   submitterRoles?: Record<string, string>;
   onLoadMore: () => void; onRefresh: () => void; onHistory: (order: WorkOrder) => void;
-  onAction: (order: WorkOrder) => void; onReport: () => void;
+  onAction: (order: WorkOrder) => void; onReport?: () => void;
   statusUpdates: Record<string, StatusUpdate>; onDismissStatus: (id: string, noticeId: number) => void; onRevealStatus: (update: StatusUpdate) => void;
 }) {
   const id = useId();
@@ -44,16 +44,21 @@ export default function TicketList({ orders, categories, locations, loading, err
       <button type="button" className="status-update-dismiss" aria-label={`Dismiss status update for ${update.order.title}`} onClick={() => onDismissStatus(update.order.id, update.noticeId)}><X size={16} aria-hidden="true" /></button>
     </div>)}</div>
     <div className="request-toolbar">
-      <div className="request-search"><label htmlFor={`${id}-search`}>Search loaded requests</label><div><Search size={18} aria-hidden="true" /><input id={`${id}-search`} type="search" placeholder="Title or request ID" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div>
+      <div className="request-search"><label htmlFor={`${id}-search`}>Search requests</label><div><Search size={18} aria-hidden="true" /><input id={`${id}-search`} type="search" placeholder="Title or request ID" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div>
       <div><label htmlFor={`${id}-status`}>Status</label><select id={`${id}-status`} value={status} onChange={(e) => setStatus(e.target.value)}>{["ALL", ...STAGES].map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}</select></div>
-      <div><label htmlFor={`${id}-location`}>Location</label><select id={`${id}-location`} value={location} onChange={(e) => setLocation(e.target.value)}><option value="">All locations</option>{locations.map((l) => <option key={l.id} value={l.id}>{l.building} · {l.floor_room}</option>)}</select></div>
-      <div><label htmlFor={`${id}-sort`}>Sort by</label><select id={`${id}-sort`} value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="urgent">Repair target</option></select></div>
       <button type="button" className="btn-switch-role" disabled={loading || demo} onClick={onRefresh}><RefreshCw size={16} className={loading ? "animate-spin motion-reduce:animate-none" : ""} aria-hidden="true" />{loading ? "Refreshing…" : "Refresh"}</button>
     </div>
+    <details className="request-more-filters">
+      <summary>More filters{location && <span className="sr-only">, location filter active</span>}</summary>
+      <div className="request-extra-filters">
+      <div><label htmlFor={`${id}-location`}>Location</label><select id={`${id}-location`} value={location} onChange={(e) => setLocation(e.target.value)}><option value="">All locations</option>{locations.map((l) => <option key={l.id} value={l.id}>{l.building} · {l.floor_room}</option>)}</select></div>
+      <div><label htmlFor={`${id}-sort`}>Sort by</label><select id={`${id}-sort`} value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="urgent">Repair target</option></select></div>
+      </div>
+    </details>
     {error && <div className="request-error" role="alert"><AlertCircle size={20} aria-hidden="true" /><div><strong>Couldn’t load requests</strong><p>{error}{orders.length > 0 && " Your previously loaded requests are still shown."}</p><button type="button" className="btn-switch-role" disabled={loading} onClick={onRefresh}>Retry loading requests</button></div></div>}
-    <div className="request-results"><p role="status">{loading ? "Loading requests…" : `${filtered.length} of ${orders.length} loaded requests shown`}</p>{hasFilters && <button className="text-button" onClick={() => { setQuery(""); setStatus("ALL"); setLocation(""); }}>Clear filters</button>}</div>
+    <div className="request-results"><p role="status">{loading ? "Loading requests…" : `${filtered.length} ${filtered.length === 1 ? "request" : "requests"}`}</p>{hasFilters && <button className="text-button" onClick={() => { setQuery(""); setStatus("ALL"); setLocation(""); }}>Clear filters</button>}</div>
     {loading && !orders.length ? <div role="status" className="request-empty"><RefreshCw className="animate-spin motion-reduce:animate-none" aria-hidden="true" /><p>Loading your requests…</p></div>
-      : !filtered.length && !error ? <div className="request-empty"><h2>{hasFilters ? "No matching requests" : "No requests yet"}</h2><p>{hasFilters ? "Try a different search, location or status, or clear your filters." : dispatch ? "New requests will appear here when they are reported." : "Report an issue to start tracking a repair."}</p>{!hasFilters && !dispatch && <button className="send-button" onClick={onReport}>Report an issue</button>}</div>
+      : !filtered.length && !error ? <div className="request-empty"><h2>{hasFilters ? "No matching requests" : "No requests yet"}</h2><p>{hasFilters ? "Try a different search or clear your filters." : dispatch ? "New requests will appear here when they are reported." : "Report an issue to start tracking a repair."}</p>{!hasFilters && onReport && <button className="send-button" onClick={onReport}>Report an issue</button>}</div>
       : <div className="request-list">{filtered.map((order) => {
         const loc = locations.find((l) => l.id === order.location_id);
         const cat = categories.find((c) => c.id === order.category_id);
@@ -70,6 +75,6 @@ export default function TicketList({ orders, categories, locations, loading, err
           {dispatch && action && <div className="request-row-actions"><button type="button" className="send-button" disabled={busy || demo} onClick={() => onAction(order)}>{busy && <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}{busy ? "Saving…" : action}<span className="sr-only"> for {order.title}</span></button></div>}
         </article>;
       })}</div>}
-    {hasMore && <div className="request-load-more"><p>Search and filters apply to loaded requests. Load more to include older requests.</p><button className="btn-switch-role" disabled={loading} onClick={onLoadMore}>Load more requests</button></div>}
+    {hasMore && <div className="request-load-more"><p>Load older requests to include them in search.</p><button className="btn-switch-role" disabled={loading} onClick={onLoadMore}>Load more requests</button></div>}
   </section>;
 }

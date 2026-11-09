@@ -91,6 +91,37 @@ test("database authorization, atomic audit and partner isolation", async () => {
     await assert.rejects(partner(modifySql, [first.work_order.id, args[4], false, "change", null, null, null]));
     const immutable = await db.query("select to_status from public.status_history where work_order_id=$1 order by timestamp,id", [id]);
     assert.equal(immutable.rows.length, 5);
+
+    for (const name of ["010_public_reporter_dashboard", "011_admin_manual_review", "012_public_manual_location_and_category"]) {
+      await db.exec(readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), "utf8"));
+    }
+    const makeReview = async () => (await db.query(
+      "select public.create_public_work_order('Test leak','Water is pooling under the sink.',null,'Test') as result",
+    )).rows[0].result.reference_number;
+    const pending = await makeReview();
+    const previouslyAssigned = await makeReview();
+    await actor(staff, "staff", "select public.assign_work_order($1,$2)", [previouslyAssigned, staff]);
+    await db.exec(readFileSync(new URL("../supabase/migrations/013_manual_review_assignment.sql", import.meta.url), "utf8"));
+    const direct = await db.query("select public.create_public_work_order('Leak','Water leaking','Plumbing','Test') as result");
+    assert.equal(direct.rows[0].result.classification_status, "classified");
+    const needsReview = await makeReview();
+    assert.equal((await db.query("select classification_status from public.work_orders where id=$1", [needsReview])).rows[0].classification_status, "needs_review");
+
+    const testCategory = (await db.query("insert into public.categories(name,sla_hours) values('Plumbing API Test',8) returning id")).rows[0].id;
+    const classifySql = "select * from public.classify_work_order($1,$2)";
+    await assert.rejects(actor(reporter, "reporter", classifySql, [pending, category]), { code: "42501" });
+    await assert.rejects(actor(staff, "staff", classifySql, [pending, testCategory]), { code: "22023" });
+    await assert.rejects(actor(staff, "staff", "select public.assign_work_order($1,$2)", [pending, staff]), { code: "23514" });
+    assert.equal((await db.query("select count(*)::int as n from public.assignments where work_order_id=$1", [pending])).rows[0].n, 0);
+    const classified = (await actor(staff, "staff", classifySql, [pending, category])).rows[0];
+    assert.equal(classified.status, "OPEN");
+    assert.equal(classified.classification_status, "classified");
+    assert.equal(classified.category_id, category);
+    assert.equal(await countHistory(pending), 2);
+    await assert.rejects(actor(staff, "staff", classifySql, [pending, category]), { code: "P0002" });
+    await actor(staff, "staff", "select public.assign_work_order($1,$2)", [pending, staff]);
+    assert.equal((await actor(staff, "staff", classifySql, [previouslyAssigned, category])).rows[0].status, "ASSIGNED");
+
     await db.query("update auth.users set raw_app_meta_data='{}' where id=$1", [staff]);
     assert.equal((await actor(staff, "staff", "select public.current_user_is_staff() as staff")).rows[0].staff, false,
       "A stale JWT must not retain a revoked staff role");

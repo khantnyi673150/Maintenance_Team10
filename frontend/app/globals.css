@@ -9,13 +9,13 @@
 
 /* --- shadcn preset b7Br9WuC8 (maia / mist / red) --- */
 :root {
-  --background: oklch(0.982 0.003 220);
-  --foreground: oklch(0.148 0.004 228.8);
+  --background: #f7f8fa;
+  --foreground: #20242d;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.148 0.004 228.8);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.148 0.004 228.8);
-  --primary: oklch(0.505 0.213 27.518);
+  --primary: #a51d34;
   --primary-foreground: oklch(0.985 0.005 20);
   --secondary: oklch(0.967 0.003 220);
   --secondary-foreground: oklch(0.21 0.006 220);
@@ -25,7 +25,7 @@
   --accent-foreground: oklch(0.218 0.008 223.9);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0.005 20);
-  --border: oklch(0.915 0.006 220);
+  --border: #dce0e6;
   --input: oklch(0.915 0.006 220);
   --ring: oklch(0.505 0.213 27.518);
   --radius: 0.625rem;
@@ -62,99 +62,6 @@ button, input, textarea, select {
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
-}
-
-.public-dashboard {
-  min-height: 100svh;
-  padding: 28px clamp(18px, 5vw, 72px) 64px;
-  color: #24292f;
-  background: #f7f6f4;
-}
-.public-header, .public-hero, .public-grid { width: 100%; max-width: 1180px; margin: 0 auto; }
-.public-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.public-brand { display: flex; align-items: center; gap: 11px; }
-.public-brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: #fff; background: var(--primary); }
-.public-brand strong, .public-brand span { display: block; }
-.public-brand strong { font-size: 16px; }
-.public-brand div > span { margin-top: 4px; color: #77727a; font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
-.public-staff-link { color: #9f2028; font-size: 13px; font-weight: 600; text-decoration: none; }
-.public-staff-link:hover { text-decoration: underline; }
-.public-hero { display: flex; align-items: end; justify-content: space-between; gap: 28px; padding: 72px 0 34px; }
-.public-eyebrow, .public-card-kicker { margin: 0 0 10px; color: #9f2028; font-size: 10px; font-weight: 700; letter-spacing: .12em; }
-.public-hero h1 { max-width: 640px; font-size: clamp(32px, 5vw, 54px); }
-.public-hero p:not(.public-eyebrow) { max-width: 570px; margin: 15px 0 0; color: #6f6a72; line-height: 1.7; }
-.public-status-note { display: flex; align-items: center; gap: 10px; max-width: 280px; padding: 14px 16px; border: 1px solid #d6e5d9; border-radius: 12px; color: #286344; background: #f5faf6; font-size: 12px; line-height: 1.55; }
-.public-grid { display: grid; grid-template-columns: minmax(300px, .82fr) minmax(0, 1.18fr); gap: 22px; align-items: start; }
-.public-card { padding: 25px; border: 1px solid #e6e2df; border-radius: 16px; background: #fff; box-shadow: 0 8px 28px #2e252506; }
-.public-card-heading h2 { margin: 0; font-size: 22px; letter-spacing: -.025em; }
-.public-card-heading > p:last-child { margin: 9px 0 22px; color: #746e77; font-size: 13px; line-height: 1.6; }
-.public-report-card label { display: block; margin-top: 16px; color: #4a474e; font-size: 12px; font-weight: 650; }
-.public-report-card input, .public-report-card textarea, .public-report-card select, .public-search input { width: 100%; margin-top: 7px; padding: 11px 12px; border: 1px solid #e1dfe2; border-radius: 8px; color: #29272b; background: #fff; font-size: 13px; }
-.public-report-card textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
-.public-report-card input:focus, .public-report-card textarea:focus, .public-report-card select:focus, .public-search input:focus { border-color: var(--primary); outline: 2px solid #b6232b1c; }
-.public-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.public-privacy-note { margin: 16px 0; color: #777079; font-size: 11px; line-height: 1.6; }
-.public-submit { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 45px; margin-top: 16px; border: 0; border-radius: 8px; color: #fff; background: var(--primary); font-size: 13px; font-weight: 650; }
-.public-submit:not(:disabled):hover { background: #a51e27; }
-.public-submit:disabled { cursor: wait; opacity: .7; }
-.public-form-error { padding: 10px 12px; border-radius: 8px; color: #98252e; background: #fff3f2; font-size: 12px; }
-.public-success { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-radius: 8px; color: #286344; background: #f1f8f2; font-size: 12px; }
-.public-toolbar { display: flex; gap: 8px; }
-.public-search { position: relative; flex: 1; }
-.public-search svg { position: absolute; top: 17px; left: 12px; color: #969099; }
-.public-search input { margin-top: 0; padding-left: 37px; }
-.public-refresh { display: grid; place-items: center; width: 43px; border: 1px solid #e1dfe2; border-radius: 8px; color: #69636c; background: #fff; }
-.public-refresh:hover { color: var(--primary); border-color: var(--primary); }
-.public-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
-.public-filters button { padding: 7px 10px; border: 1px solid #e2dfe1; border-radius: 99px; color: #706a73; background: #fff; font-size: 11px; }
-.public-filters button.active { border-color: #e9c5c6; color: #9f2028; background: #fff3f2; font-weight: 650; }
-.public-ticket-list { display: grid; gap: 10px; }
-.public-ticket { padding: 15px; border: 1px solid #ece9e7; border-radius: 11px; }
-.public-ticket-top { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
-.public-reference { margin: 0 0 5px; color: #8a838d; font: 10px "DM Mono", monospace; overflow-wrap: anywhere; }
-.public-ticket h3 { margin: 0; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
-.public-status { flex-shrink: 0; padding: 5px 8px; border-radius: 99px; font-size: 10px; font-weight: 650; }
-.public-status.started { color: #8a5b18; background: #fff7df; }
-.public-status.in_progress { color: #245c8a; background: #edf6ff; }
-.public-status.finished { color: #286344; background: #eef8f0; }
-.public-ticket-description { margin: 11px 0; color: #605a63; font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.public-ticket-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: #827b85; font-size: 10px; line-height: 1.5; }
-.public-loading, .public-empty { padding: 30px 12px; color: #746e77; font-size: 13px; text-align: center; }
-.public-empty button { color: #9f2028; text-decoration: underline; }
-@media (max-width: 850px) {
-  .public-hero { display: block; padding-top: 52px; }
-  .public-status-note { margin-top: 22px; max-width: none; }
-  .public-grid { grid-template-columns: 1fr; }
-}
-@media (max-width: 520px) {
-  .public-dashboard { padding-inline: 14px; }
-  .public-header { align-items: start; }
-  .public-brand div > span { letter-spacing: .06em; }
-  .public-form-grid { grid-template-columns: 1fr; gap: 0; }
-  .public-card { padding: 18px; }
-  .public-ticket-top { display: block; }
-  .public-status { display: inline-block; margin-top: 9px; }
-}
-
-@media (max-width: 760px) {
-  .public-dashboard { padding-top: 18px; }
-  .public-hero { padding: 48px 0 28px; }
-  .public-hero h1 { line-height: 1.08; letter-spacing: -.04em; }
-  .public-grid { gap: 16px; }
-  .public-card { box-shadow: 0 1px 2px rgba(28, 29, 36, .04); }
-}
-
-@media (max-width: 420px) {
-  .public-header { align-items: flex-start; }
-  .public-brand strong { font-size: 14px; }
-  .public-brand-mark { width: 38px; height: 38px; }
-  .public-staff-link { padding-top: 8px; }
-  .public-hero { padding-top: 38px; }
-  .public-hero h1 { font-size: 34px; }
-  .public-card { padding: 16px; border-radius: 12px; }
-  .public-card-heading h2 { font-size: 20px; }
-  .public-toolbar { gap: 6px; }
-  .public-refresh { width: 44px; }
 }
 
 button, input, textarea, select {
@@ -506,10 +413,8 @@ h1 {
 
 label {
   color: var(--muted-foreground);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 input, select, textarea {

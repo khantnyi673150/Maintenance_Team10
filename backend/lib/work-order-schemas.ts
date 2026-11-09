@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Accepts both standard RFC-4122 UUIDs and database test fixture UUIDs (e.g. 11111111-1111-1111-1111-111111111111)
-const uuidSchema = z.string().regex(
+export const uuidSchema = z.string().regex(
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   "Invalid UUID",
 );

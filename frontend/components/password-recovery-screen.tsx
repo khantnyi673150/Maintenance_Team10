@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { AlertCircle, CheckCircle2, Eye, EyeOff, LoaderCircle, Wrench } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { CampusHeader } from "@/components/campus-brand";
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function PasswordRecoveryScreen({ update = false }: { update?: boolean }) {
@@ -58,13 +59,19 @@ export default function PasswordRecoveryScreen({ update = false }: { update?: bo
     finally { lock.current = false; if (mounted.current) setBusy(false); }
   }
 
-  return <main className="login-page recovery-page"><Link href="/login" className="recovery-brand"><span className="login-brand-mark"><Wrench size={22} aria-hidden="true" /></span>Campus Maintenance</Link><section className="login-card recovery-card" aria-labelledby="recovery-title"><p className="login-card-eyebrow">ACCOUNT RECOVERY</p><div className="login-card-heading"><h1 id="recovery-title">{success ? update ? "Password updated" : "Check your email" : update ? "Set a new password" : "Forgot your password?"}</h1><p>{success ? update ? "You can now sign in with your new password." : "If an account exists for that address, you’ll receive a reset link. Check your spam folder too." : update ? "Choose a new password to regain access to your account." : "Enter your account email and we’ll send a password reset link."}</p></div>
+  return <div className="login-page">
+    <CampusHeader action={<Link className="btn-switch-role" href="/login"><ArrowLeft size={16} aria-hidden="true" />Sign in</Link>} />
+    <main className="login-main"><section className="login-card" aria-labelledby="recovery-title">
+      <div className="login-card-heading">
+        <h1 id="recovery-title">{success ? update ? "Password updated" : "Check your email" : update ? "New password" : "Reset password"}</h1>
+        <p>{success ? update ? "Sign in with your new password." : "If the account exists, we’ll email a reset link." : update ? "Use at least 8 characters." : "Enter your account email to get a reset link."}</p>
+      </div>
     {success ? <div className="recovery-success" role="status"><CheckCircle2 size={24} aria-hidden="true" /><Link href="/login">Back to sign in</Link>{!update && <button className="text-button" onClick={() => setSuccess(false)}>Use another email</button>}</div> : <>
       <form className="login-form" onSubmit={submit} aria-busy={busy || checking}>
         <fieldset className="login-fields" disabled={busy || checking || (update && !canUpdate)}>
           <legend className="sr-only">{update ? "New password" : "Recovery email"}</legend>
           {!update ? <div className="login-field"><label htmlFor="recovery-email">Email address</label><input id="recovery-email" name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required value={email} onChange={(event) => setEmail(event.target.value)} /></div> : <>
-            <div className="login-field"><label htmlFor="new-password">New password</label><div className="recovery-password-wrap"><input id="new-password" name="new-password" type={show ? "text" : "password"} autoComplete="new-password" required minLength={8} aria-describedby="password-hint" value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="login-password-toggle" aria-label={show ? "Hide passwords" : "Show passwords"} aria-pressed={show} onClick={() => setShow((value) => !value)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></div><p id="password-hint" className="field-help">Use at least 8 characters. A long, unique password is best.</p></div>
+            <div className="login-field"><label htmlFor="new-password">New password</label><div className="recovery-password-wrap"><input id="new-password" name="new-password" type={show ? "text" : "password"} autoComplete="new-password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="login-password-toggle" aria-label={show ? "Hide passwords" : "Show passwords"} aria-pressed={show} onClick={() => setShow((value) => !value)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
             <div className="login-field"><label htmlFor="confirm-password">Confirm new password</label><input id="confirm-password" name="confirm-password" type={show ? "text" : "password"} autoComplete="new-password" required minLength={8} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></div>
           </>}
           <button type="submit" className="login-submit">{(busy || checking) && <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}{checking ? "Checking reset link…" : busy ? update ? "Updating password…" : "Sending reset link…" : update ? "Update password" : "Send reset link"}</button>
@@ -72,7 +79,8 @@ export default function PasswordRecoveryScreen({ update = false }: { update?: bo
       </form>
       <p className="sr-only" role="status">{busy ? "Please wait. Your request is being processed." : checking ? "Checking your reset link." : ""}</p>
       {error && <div id="recovery-error" className="login-error" role="alert" ref={errorRef} tabIndex={-1}><AlertCircle size={18} aria-hidden="true" /><p>{error}</p></div>}
-      <div className="recovery-links"><Link href="/login">Back to sign in</Link>{update && <Link href="/forgot-password">Request a new reset link</Link>}</div>
+      {update && <div className="recovery-links"><Link href="/forgot-password">Request a new reset link</Link></div>}
     </>}
-  </section></main>;
+  </section></main>
+  </div>;
 }
