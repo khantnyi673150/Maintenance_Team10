@@ -6,11 +6,12 @@ import { createHmac } from "node:crypto";
 
 const root = new URL("../", import.meta.url);
 const require = createRequire(import.meta.url);
+const nextServerUrl = pathToFileURL(require.resolve("next/server")).href;
 // Resolve the app's TypeScript aliases without a test bundler. Only Next's
 // compile-time server marker is replaced; the actual route/auth/SDK code runs.
 const hooks = registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return { url: "data:text/javascript,export {}", shortCircuit: true };
-  if (specifier === "next/server") return { url: pathToFileURL(require.resolve("next/server")).href, shortCircuit: true };
+  if (specifier === "next/server") return { url: nextServerUrl, shortCircuit: true };
   if (specifier.startsWith("@/")) return { url: new URL(specifier.slice(2) + ".ts", root).href, shortCircuit: true };
   if (specifier.startsWith(".") && context.parentURL?.endsWith(".ts") && !/\.[a-z]+$/i.test(specifier)) {
     return { url: new URL(specifier + ".ts", context.parentURL).href, shortCircuit: true };
