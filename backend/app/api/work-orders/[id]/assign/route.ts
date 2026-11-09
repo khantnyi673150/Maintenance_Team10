@@ -1,5 +1,4 @@
-import { createRequestSupabaseClient } from "@/lib/supabase-server";
-import { readJson, supabaseErrorResponse } from "@/lib/api";
+import { errorResponse, readRequestText, supabaseErrorResponse, timedJson } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import {
   assignWorkOrderSchema,
@@ -7,20 +6,48 @@ import {
 } from "@/lib/work-order-schemas";
 import { dispatchStatusChangedWithoutBlocking } from "@/lib/team12-integration";
 
+export const maxDuration = 60;
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: RouteContext) {
   const auth = await requireAuth(request, ["staff"]);
   if (auth.response) return auth.response;
 
-  const parsed = await readJson<AssignWorkOrderInput>(request, assignWorkOrderSchema);
-  if (parsed.response) return parsed.response;
+  let staffId = auth.context?.user.id;
+
+  const raw = await readRequestText(request);
+  if (raw.response) return raw.response;
+  const text = raw.text ?? "";
+  if (text.trim().length > 0) {
+    try {
+      const body = JSON.parse(text);
+      const parsed = assignWorkOrderSchema.safeParse(body);
+      if (!parsed.success) {
+        return errorResponse(
+          400,
+          "VALIDATION_ERROR",
+          parsed.error.issues.map((issue) => issue.message).join("; "),
+        );
+      }
+      if (parsed.data.staff_id) {
+        staffId = parsed.data.staff_id;
+      }
+    } catch {
+      return errorResponse(400, "INVALID_JSON", "Request body must be valid JSON");
+    }
+  }
+
+  if (!staffId) {
+    return errorResponse(400, "VALIDATION_ERROR", "staff_id is required");
+  }
 
   const { id } = await context.params;
-  const supabase = createRequestSupabaseClient(request.headers.get("authorization"));
+  const supabase = auth.context!.supabase;
+  const databaseStartedAt = performance.now();
   const { data, error } = await supabase.rpc("assign_work_order", {
     p_work_order_id: id,
-    p_staff_id: parsed.data!.staff_id,
+    p_staff_id: staffId,
   });
 
   if (error) return supabaseErrorResponse(error);
@@ -28,6 +55,7 @@ export async function POST(request: Request, context: RouteContext) {
     workOrderId: id,
     fromStatus: "OPEN",
     toStatus: "ASSIGNED",
+    activityId: (data as any)?.activity_id,
   });
-  return Response.json(data);
+  return timedJson(data, auth.context!, databaseStartedAt);
 }

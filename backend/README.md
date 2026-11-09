@@ -12,7 +12,7 @@ The database is hosted in Supabase. The backend and frontend run locally:
 
 ### Prerequisites
 
-- Node.js 20 or later and npm
+- Node.js 22.15 or later and npm
 - A Supabase account with access to the Team 10 project
 - The Supabase project URL and anon/publishable key
 - The test account passwords, shared separately from this repository
@@ -23,7 +23,7 @@ The database is hosted in Supabase. The backend and frontend run locally:
 
    ```powershell
    cd backend
-   npm install
+   npm ci
    ```
 
 2. Create the backend environment file:
@@ -66,9 +66,12 @@ For a new Supabase project, open the Supabase Dashboard SQL Editor and run the m
 4. `supabase/migrations/004_seed_api_test_data.sql`
 5. `supabase/migrations/005_fix_api_test_uuid_values.sql`
 6. `supabase/migrations/006_partner_webhook_events.sql`
-7. `supabase/migrations/007_work_order_integration_fields.sql`
+7. `supabase/migrations/007_remove_plumbing_api_test_category.sql`
+8. `supabase/migrations/008_partner_work_orders.sql`
+9. `supabase/migrations/009_security_hardening.sql`
+10. `supabase/migrations/010_public_reporter_dashboard.sql`
 
-The current repository uses legacy numeric migration names. If `npx supabase db push` reports that remote migration versions are missing locally, use the SQL Editor procedure above instead of repairing or deleting remote migration history. The final seed migration adds the valid API-console location and category IDs.
+The current repository uses legacy numeric migration names. If `npx supabase db push` reports that remote migration versions are missing locally, use the SQL Editor procedure above instead of repairing or deleting remote migration history. Migrations 004–005 seed the location and category fixtures; migration 007 consolidates the duplicate Plumbing test category while preserving existing work orders.
 
 ### Start the applications
 
@@ -78,7 +81,7 @@ Terminal 1, backend:
 
 ```powershell
 cd backend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -86,7 +89,7 @@ Terminal 2, frontend:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 Copy-Item .env.example .env.local
 npm run dev
 ```
@@ -103,13 +106,11 @@ Open the console at `http://localhost:3001` and check the backend at `http://loc
 
 ### First API test
 
-1. Select `reporter1@gmail.com` or `staff1@gmail.com`.
-2. Enter the test account password and select **Sign in**.
-3. Send the default `POST /work-orders` request.
-4. Confirm the response is `201 Created` and the work-order status is `OPEN`.
-5. Change the method to `GET`, keep the path `/work-orders`, and send the request again. The created work order should be returned in `data`.
+1. Sign in with your own privately provisioned campus account.
+2. Submit an issue using **Submit New Ticket** and confirm its status is OPEN.
+3. Check the tracker and history. Staff users can use the Dispatch Board to advance the ticket sequentially.
 
-The frontend obtains the Supabase access token through sign-in and sends it as `Authorization: Bearer <token>`. A `400 Invalid UUID` response usually means an old request body is open; refresh the page so the valid seeded UUIDs are loaded.
+The frontend forwards the Supabase access token as `Authorization: Bearer <token>`. The backend independently verifies the user and its administrator-controlled role on every protected request.
 
 ## API routes
 
@@ -130,9 +131,20 @@ Protected routes require:
 Authorization: Bearer <supabase-access-token>
 ```
 
-The token user must have `role: reporter` or `role: staff` in Supabase Auth metadata. Staff-only routes enforce the role on the server. CORS allows the configured `FRONTEND_ORIGINS` values.
+The token user must have `role: reporter` or `role: staff` in administrator-controlled Supabase `app_metadata`. Staff-only routes enforce the role on the server. CORS allows the configured `FRONTEND_ORIGINS` values.
 
 The separate API test client is in `../frontend` and runs on port `3001`.
+
+The public reporter dashboard is available at the frontend root without authentication.
+It submits through `/api/public/work-orders` and reads only privacy-filtered fields.
+The public API never exposes reporter identity, assignments, audit notes, resolution
+notes, or archived tickets. The database migration also removes common email,
+telephone, and credential-like values from public ticket text.
+
+Staff accounts must have `app_metadata.maintenance_category` set to `Plumbing`,
+`Electrical`, `HVAC`, or `Safety`. Staff select that category on the login form;
+the API uses the administrator-controlled claim to scope their dashboard and work
+order list to that category.
 
 ### Production deployment
 
@@ -171,9 +183,21 @@ with `X-Webhook-Secret` and `X-Event-ID`.
 
 ## Validation
 
+### Category suggestions and location hints
+
+Classification uses bounded keyword rules with Latin word boundaries, common inflections, English/Thai negation checks and independent phrase evidence. Repeated/overlapping keywords do not inflate scores. Ties, close scores and insufficient evidence fall back to manual selection; explicit hazards and affirmative water/electrical exposure retain Safety priority. The legacy `confidence` field is a keyword-score share, not a calibrated accuracy probability. These heuristics do not establish accuracy for every natural-language report.
+
+`detected_building` is an optional hint from a unique explicit known building code or name. Generic terms such as lab/office, unsupported codes and conflicting buildings do not imply a building or default room. This result never creates or edits a location. The existing prompt-defense interceptors and 1,500 ms deadline remain in place.
+
+`npm run test:ai-eval` runs the original golden dataset plus the accuracy/location regression cases.
+
 ```powershell
 npm run typecheck
 npm run build
 ```
 
 The database migration source is in `supabase/migrations`. Assignment documentation is in `A3-Team10-Database-Design.md`.
+
+## Security deployment requirements
+
+Read [the authentication and testing guide](../API_TESTING_AND_AUTH_GUIDE.md) before deployment. Apply migration 009 and assign trusted `app_metadata.role` values before deploying the matching backend. Partner routes now require the server-only service key and the service-only atomic partner RPCs; missing migrations or credentials return 503 rather than silently bypassing audit or idempotency. Rotate previously exposed demo passwords.
