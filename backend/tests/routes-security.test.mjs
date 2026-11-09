@@ -53,6 +53,9 @@ globalThis.fetch = async (input, init) => {
     return Response.json({ id: "00000000-0000-4000-8000-000000000001", app_metadata: { role: "reporter" }, user_metadata: { role: "staff" } });
   }
   databaseCalls.push({ method: request.method, path: url.pathname, query: url.searchParams, token });
+  if (url.pathname === "/rest/v1/rpc/assign_work_order") {
+    return Response.json({ id: "00000000-0000-4000-8000-000000000010", status: "ASSIGNED", partner_source: null });
+  }
   if (request.method === "HEAD") return new Response(null, { status: dashboardCountFailure ? 503 : 200, headers: { "Content-Range": "*/7" } });
   if (url.pathname === "/rest/v1/categories") return Response.json([{ id: "00000000-0000-4000-8000-000000000020", sla_hours: 8 }]);
   if (url.pathname === "/rest/v1/rpc/classify_work_order") {
