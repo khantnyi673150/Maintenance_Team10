@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, MapPin, Plus, RefreshCw, Search } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, MapPin, Plus, RefreshCw, Search, Sparkles } from "lucide-react";
 import AccessibleDialog from "@/components/accessible-dialog";
 import { CampusHeader } from "@/components/campus-brand";
+import LocationHint from "@/components/location-hint";
+import { requestCategorySuggestion } from "@/lib/category-request";
+import { reviewCategorySuggestion } from "@/lib/category-review";
+import { maintenanceCategories } from "@/lib/maintenance-role";
 
-const categories = ["Plumbing", "Electrical", "HVAC", "Safety"];
+const categoryOptions = maintenanceCategories.map(({ value }) => ({ id: value, name: value }));
+const suggestionDescriptionLimit = 2000;
 const statuses = {
   STARTED: { label: "Submitted", badge: "OPEN" },
   IN_PROGRESS: { label: "In progress", badge: "IN_PROGRESS" },
@@ -24,6 +29,10 @@ type PublicTicket = {
   location: { building: string | null; floor_room: string | null };
 };
 
+type PublicSuggestion =
+  | { status: "loading" | "unavailable" }
+  | { status: "ready"; category: string | undefined; buildingHint: string | null };
+
 const emptyForm = { title: "", description: "", category: "", location: "", student_id: "", ticketRef: "" };
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
 
@@ -39,9 +48,12 @@ export default function PublicReporterDashboard() {
   const [submittedIdentity, setSubmittedIdentity] = useState<{ status: "identified" | "not_identified"; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [suggestion, setSuggestion] = useState<PublicSuggestion | null>(null);
   const [detailReference, setDetailReference] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
   const submittingRef = useRef(false);
+  const suggestionRequest = useRef<symbol | null>(null);
+  const categoryField = useRef<HTMLSelectElement>(null);
 
   const loadTickets = useCallback(async () => {
     request.current?.abort();
@@ -80,6 +92,33 @@ export default function PublicReporterDashboard() {
     return matchesStatus && matchesSearch;
   });
   const detail = tickets.find((ticket) => ticket.reference_number === detailReference);
+  const description = form.description.trim();
+  const exceedsSuggestionLimit = description.length > suggestionDescriptionLimit;
+  const suggestedCategory = suggestion?.status === "ready" ? suggestion.category : undefined;
+  const buildingHint = suggestion?.status === "ready" ? suggestion.buildingHint : null;
+
+  function updateIssueText(field: "title" | "description", value: string) {
+    suggestionRequest.current = null;
+    setSuggestion(null);
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function suggestCategory() {
+    if (!description || exceedsSuggestionLimit || submittingRef.current || suggestionRequest.current) return;
+    const requestId = Symbol();
+    suggestionRequest.current = requestId;
+    setSuggestion({ status: "loading" });
+    try {
+      const { data } = await requestCategorySuggestion(apiBase + "/public/categorize", null, { title: form.title, description });
+      if (suggestionRequest.current !== requestId) return;
+      const result = reviewCategorySuggestion({ categoryId: form.category, locationId: form.location }, data, categoryOptions);
+      setSuggestion({ status: "ready", category: result.categoryName, buildingHint: result.buildingHint });
+    } catch {
+      if (suggestionRequest.current === requestId) setSuggestion({ status: "unavailable" });
+    } finally {
+      if (suggestionRequest.current === requestId) suggestionRequest.current = null;
+    }
+  }
 
   function trackSubmission(reference: string) {
     setSearch(reference);
@@ -118,6 +157,8 @@ export default function PublicReporterDashboard() {
           ? result.student_identity.message
           : "Student identity was not confirmed; the report was still saved.",
       });
+      suggestionRequest.current = null;
+      setSuggestion(null);
       setForm(emptyForm);
     } catch (failure) {
       setSubmitError(failure instanceof Error ? failure.message : "Couldn’t send your request.");
@@ -152,11 +193,39 @@ export default function PublicReporterDashboard() {
         <form onSubmit={submitTicket} aria-busy={submitting}>
           <fieldset className="public-fields" disabled={submitting}>
             <legend className="sr-only">Issue details</legend>
-            <div className="field"><label htmlFor="public-title">Issue title</label><input id="public-title" required maxLength={200} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Broken light in Room 204" /></div>
-            <div className="field"><label htmlFor="public-description">Description</label><textarea id="public-description" aria-describedby="public-privacy" required maxLength={10000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="What happened?" /><p id="public-privacy" className="field-help">This report is public. Leave out personal information.</p></div>
+            <div className="field"><label htmlFor="public-title">Issue title</label><input id="public-title" required maxLength={200} value={form.title} onChange={(event) => updateIssueText("title", event.target.value)} placeholder="e.g. Broken light in Room 204" /></div>
+            <div className="field"><label htmlFor="public-description">Description</label><textarea id="public-description" aria-describedby="public-privacy" required maxLength={10000} value={form.description} onChange={(event) => updateIssueText("description", event.target.value)} placeholder="What happened?" /><p id="public-privacy" className="field-help">This report is public. Leave out personal information.</p></div>
             <div className="report-select-grid">
-              <div className="field"><label htmlFor="public-location">Location</label><input id="public-location" required maxLength={300} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="e.g. C1, Room 204" /></div>
-              <div className="field"><label htmlFor="public-category">Category</label><select id="public-category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}><option value="">Choose a category</option>{categories.map((category) => <option key={category}>{category}</option>)}<option value="Unknown">Not sure</option></select></div>
+              <div className="field">
+                <label htmlFor="public-location">Location</label>
+                <input id="public-location" aria-describedby="report-location-hint" required maxLength={300} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="e.g. C1, Room 204" />
+                <LocationHint building={buildingHint} />
+              </div>
+              <div className="field">
+                <label htmlFor="public-category">Category</label>
+                <select id="public-category" ref={categoryField} required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+                  <option value="">Choose a category</option>
+                  {categoryOptions.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+                  <option value="Unknown">Not sure</option>
+                </select>
+                <div className="public-category-suggestion">
+                  <button type="button" className="btn-switch-role" aria-describedby="public-category-suggestion-status"
+                    onClick={() => void suggestCategory()} disabled={!description || exceedsSuggestionLimit || suggestion?.status === "loading"}>
+                    {suggestion?.status === "loading" ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
+                    {suggestion?.status === "loading" ? "Finding a category…" : "Suggest a category"}
+                  </button>
+                  {suggestedCategory && form.category !== suggestedCategory && <button type="button" className="btn-switch-role" onClick={() => {
+                    setForm((current) => ({ ...current, category: suggestedCategory }));
+                    categoryField.current?.focus();
+                  }}>Use {suggestedCategory}</button>}
+                </div>
+                <p id="public-category-suggestion-status" className="field-help" role="status">
+                  {suggestedCategory && <span className="sr-only">{suggestedCategory} suggested.</span>}
+                  {exceedsSuggestionLimit ? "Suggestions are available for descriptions up to 2,000 characters. Choose a category to continue."
+                    : suggestion?.status === "unavailable" ? "Suggestions are unavailable. Choose a category or select Not sure."
+                      : suggestion?.status === "ready" && !suggestedCategory ? "No clear suggestion. Choose a category or select Not sure." : ""}
+                </p>
+              </div>
             </div>
             <div className="field">
               <label htmlFor="public-student-id">Student ID <span className="public-optional">(optional)</span></label>
