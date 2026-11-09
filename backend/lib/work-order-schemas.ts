@@ -11,6 +11,13 @@ export const partnerReferenceSchema = z.string().trim().min(1).max(200).regex(
 const descriptionSchema = z.string().trim().min(1).max(10000);
 export const ticketRefSchema = z.string().trim().max(62).regex(/^TKT-[0-9]{1,58}$/, "Helpdesk reference must use TKT- followed by digits");
 
+export const createHelpdeskWorkOrderSchema = z.object({
+  ticketRef: ticketRefSchema,
+  title: z.string().trim().min(1, "Title is required").max(200),
+  description: descriptionSchema,
+  location: z.string().trim().min(1).max(300).optional(),
+}).strict();
+
 export const listWorkOrdersQuerySchema = z.object({
   status: z.enum(["OPEN", "ASSIGNED", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional(),
   location_id: uuidSchema.optional(),

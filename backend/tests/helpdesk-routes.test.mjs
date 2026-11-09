@@ -26,6 +26,7 @@ const id = "550e8400-e29b-41d4-a716-446655440000";
 let lookupResult = { id, status: "IN_PROGRESS", ticket_ref: "TKT-00012", updated_at: "2026-11-09T03:00:00Z" };
 let databaseFailure = false;
 let pending = [];
+const creationReceipts = new Map();
 const calls = [];
 globalThis.fetch = async (input, init) => {
   const request = new Request(input, init);
@@ -39,12 +40,19 @@ globalThis.fetch = async (input, init) => {
   if (url.pathname === "/rest/v1/work_orders") return Response.json(lookupResult);
   if (url.pathname.endsWith("/create_public_work_order")) return Response.json({ reference_number: id });
   if (url.pathname.endsWith("/create_work_order")) return Response.json({ id });
+  if (url.pathname.endsWith("/create_helpdesk_work_order")) {
+    const existing = creationReceipts.get(body.p_ticket_ref);
+    const workOrder = existing ?? { id, status: "OPEN", ticket_ref: body.p_ticket_ref, updated_at: "2026-11-09T03:00:00Z" };
+    creationReceipts.set(body.p_ticket_ref, workOrder);
+    return Response.json({ duplicate: !!existing, work_order: workOrder });
+  }
   if (url.pathname.endsWith("/claim_helpdesk_event")) return Response.json(pending.splice(0, 1));
   if (url.pathname.endsWith("/finish_helpdesk_event")) return new Response(null, { status: 204 });
   throw new Error(`Unexpected database route ${url.pathname}`);
 };
 after(() => { globalThis.fetch = originalFetch; hooks.deregister(); });
 const lookup = await import(new URL("app/api/v1/work-orders/[id]/route.ts", root));
+const creation = await import(new URL("app/api/v1/work-orders/route.ts", root));
 const worker = await import(new URL("app/api/integrations/helpdesk/deliver/route.ts", root));
 const publicReports = await import(new URL("app/api/public/work-orders/route.ts", root));
 const reports = await import(new URL("app/api/work-orders/route.ts", root));
@@ -86,6 +94,62 @@ test("lookup handles malformed and unknown IDs and hides database error details"
   databaseFailure = true;
   try {
     const response = await lookup.GET(req("helpdesk-test-lookup"), context());
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /private database/);
+  } finally { databaseFailure = false; }
+});
+
+test("direct creation uses the lookup credential, accepts the exact three-field request and returns lookup-shaped 201", async () => {
+  const body = { ticketRef: "TKT-10001", title: "Air conditioner in room B-204 not working", description: "It does not cool and makes a noise." };
+  const before = calls.length;
+  for (const token of [undefined, "wrong-key", "helpdesk-test-worker", "helpdesk-test-service"]) {
+    assert.equal((await creation.POST(req(token, "POST", body))).status, 401);
+  }
+  assert.equal(calls.length, before);
+  const response = await creation.POST(req("helpdesk-test-lookup", "POST", body));
+  assert.equal(response.status, 201);
+  assert.equal(response.headers.get("X-Correlation-Id"), "team14-t10-01");
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(await response.json(), { data: { id, status: "reported", ticketRef: body.ticketRef, updatedAt: "2026-11-09T03:00:00Z" } });
+  assert.deepEqual(calls.at(-1).body, { p_ticket_ref: body.ticketRef, p_title: body.title, p_description: body.description, p_location: null });
+  assert.equal(calls.at(-1).headers.get("Authorization"), "Bearer helpdesk-test-service");
+});
+
+test("direct creation retries return the existing work order with 200 and optional location is forwarded", async () => {
+  const body = { ticketRef: "TKT-10002", title: "Broken light", description: "The light is out.", location: "Building B, Room 204" };
+  const first = await creation.POST(req("helpdesk-test-lookup", "POST", body));
+  assert.equal(first.status, 201);
+  assert.equal(calls.at(-1).body.p_location, body.location);
+  const replay = await creation.POST(req("helpdesk-test-lookup", "POST", { ...body, title: "Changed on retry" }));
+  assert.equal(replay.status, 200);
+  assert.deepEqual(await replay.json(), await first.json());
+});
+
+test("direct creation rejects missing, malformed and privileged fields with safe errors before RPC", async () => {
+  const valid = { ticketRef: "TKT-10003", title: "Broken light", description: "The light is out." };
+  const badBodies = [undefined, {}, { ...valid, ticketRef: "" }, { ...valid, title: " " },
+    { ...valid, description: "" }, { ...valid, ticketRef: "WO-12" }, { ...valid, status: "CLOSED" },
+    { ...valid, reporter_id: id }, { ...valid, location: "" }, { ...valid, title: "x".repeat(201) }];
+  const before = calls.length;
+  for (const body of badBodies) {
+    const response = await creation.POST(req("helpdesk-test-lookup", "POST", body));
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("X-Correlation-Id"), "team14-t10-01");
+    const result = await response.json();
+    assert.equal(typeof result.error.code, "string");
+    assert.equal(typeof result.error.message, "string");
+  }
+  assert.equal(calls.length, before);
+});
+
+test("direct creation fails closed when unconfigured and permits safe retries after a database outage", async () => {
+  const body = { ticketRef: "TKT-10004", title: "Broken light", description: "The light is out." };
+  delete process.env.HELPDESK_API_KEY;
+  try { assert.equal((await creation.POST(req("helpdesk-test-lookup", "POST", body))).status, 503); }
+  finally { process.env.HELPDESK_API_KEY = "helpdesk-test-lookup"; }
+  databaseFailure = true;
+  try {
+    const response = await creation.POST(req("helpdesk-test-lookup", "POST", body));
     assert.equal(response.status, 503);
     assert.doesNotMatch(await response.text(), /private database/);
   } finally { databaseFailure = false; }
