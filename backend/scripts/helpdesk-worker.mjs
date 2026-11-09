@@ -13,14 +13,16 @@ if (url.username || url.password || (url.protocol !== "https:" &&
 }
 const once = process.argv.includes("--once");
 do {
-  try {
+  if (process.env.HELPDESK_DELIVERY_ENABLED === "false") {
+    console.info("Helpdesk delivery paused", { at: new Date().toISOString() });
+  } else try {
     const response = await fetch(url, { headers: { Authorization: `Bearer ${secret}` },
       redirect: "error", signal: AbortSignal.timeout(55_000) });
     if (!response.ok) throw new Error(`Worker endpoint returned HTTP ${response.status}`);
     const result = await response.json();
-    console.info("Helpdesk delivery run", { processed: result.processed, delivered: result.delivered });
+    console.info("Helpdesk delivery run", { at: new Date().toISOString(), processed: result.processed, delivered: result.delivered });
   } catch {
-    console.error("Helpdesk worker run failed; queued deliveries are retained");
+    console.error("Helpdesk worker run failed; queued deliveries are retained", { at: new Date().toISOString() });
     if (once) process.exitCode = 1;
   }
   if (!once) await setTimeout(60_000);

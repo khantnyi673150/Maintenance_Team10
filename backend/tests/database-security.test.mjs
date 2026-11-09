@@ -104,6 +104,7 @@ test("database authorization, atomic audit and partner isolation", async () => {
     await db.exec(readFileSync(new URL("../supabase/migrations/013_manual_review_assignment.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("../supabase/migrations/014_public_student_identity_status.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("../supabase/migrations/015_helpdesk_integration.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("../supabase/migrations/016_helpdesk_direct_creation.sql", import.meta.url), "utf8"));
     const direct = await db.query("select public.create_public_work_order('Leak','Water leaking','Plumbing','Test') as result");
     assert.equal(direct.rows[0].result.classification_status, "classified");
     assert.equal(direct.rows[0].result.student_identity_status, "not_identified");

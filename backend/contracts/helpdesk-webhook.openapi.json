@@ -1,7 +1,62 @@
 {
   "openapi": "3.0.3",
-  "info": { "title": "Helpdesk Maintenance Webhook", "version": "0.4", "description": "Receiver contract based on Team 14 proposal v0.4. Local tests only; no live Team 14 deployment has been verified." },
+  "info": { "title": "Helpdesk Maintenance Integration", "version": "0.5", "description": "Team 14 proposal v0.4 plus direct work-order creation. Local validation does not establish production deployment." },
+  "components": {
+    "securitySchemes": { "helpdeskCredential": { "type": "http", "scheme": "bearer", "description": "Dedicated Helpdesk credential; lookup and creation only." } },
+    "schemas": {
+      "WorkOrderResponse": {
+        "type": "object", "required": ["data"], "additionalProperties": false,
+        "properties": { "data": {
+          "type": "object", "additionalProperties": false, "required": ["id", "status", "ticketRef", "updatedAt"],
+          "properties": {
+            "id": { "type": "string", "format": "uuid" },
+            "status": { "type": "string", "enum": ["reported", "assigned", "in_progress", "completed", "closed"] },
+            "ticketRef": { "type": "string" }, "updatedAt": { "type": "string", "format": "date-time" }
+          }
+        } }
+      }
+    }
+  },
   "paths": {
+    "/api/v1/work-orders": {
+      "post": {
+        "summary": "Create a repair or return the existing work order for ticketRef",
+        "security": [{ "helpdeskCredential": [] }],
+        "parameters": [{ "name": "X-Correlation-Id", "in": "header", "schema": { "type": "string", "maxLength": 128 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "additionalProperties": false, "required": ["ticketRef", "title", "description"],
+          "properties": {
+            "ticketRef": { "type": "string", "maxLength": 62, "pattern": "^TKT-[0-9]{1,58}$" },
+            "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "description": { "type": "string", "minLength": 1, "maxLength": 10000 },
+            "location": { "type": "string", "minLength": 1, "maxLength": 300, "description": "Optional. Missing location is marked for staff confirmation." }
+          }
+        } } } },
+        "responses": {
+          "201": { "description": "New work order; initial status reported", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WorkOrderResponse" } } } },
+          "200": { "description": "Existing work order; no overwrite or second creation event", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WorkOrderResponse" } } } },
+          "400": { "description": "Missing or invalid fields; error.code and error.message are returned" },
+          "401": { "description": "Invalid Helpdesk credential" },
+          "413": { "description": "Request body exceeds 64 KiB" },
+          "503": { "description": "Temporary failure or migration required; retry with the same ticketRef" }
+        }
+      }
+    },
+    "/api/v1/work-orders/{id}": {
+      "get": {
+        "summary": "Look up a non-archived work order with a Helpdesk reference",
+        "security": [{ "helpdeskCredential": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "X-Correlation-Id", "in": "header", "schema": { "type": "string", "maxLength": 128 } }
+        ],
+        "responses": {
+          "200": { "description": "Current work-order metadata", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WorkOrderResponse" } } } },
+          "400": { "description": "Malformed UUID" }, "401": { "description": "Invalid Helpdesk credential" },
+          "404": { "description": "Unknown, archived or untagged work order" }, "503": { "description": "Lookup unavailable" }
+        }
+      }
+    },
     "/api/v1/webhooks/maintenance": {
       "post": {
         "summary": "Receive a signed Maintenance status change",
