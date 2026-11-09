@@ -68,6 +68,9 @@ jobs:
       - name: Security regression tests
         run: npm run test:security --prefix backend
 
+      - name: Helpdesk contract and delivery regression tests
+        run: npm run test:helpdesk --prefix backend
+
       - name: Performance deadline and percentile tests
         run: |
           npm run test:performance --prefix backend

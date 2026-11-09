@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     p_description: parsed.data!.description,
     p_category_id: parsed.data!.category_id,
     p_title: parsed.data!.title,
+    ...(parsed.data!.ticketRef ? { p_ticket_ref: parsed.data!.ticketRef } : {}),
   });
 
   if (error) return supabaseErrorResponse(error);

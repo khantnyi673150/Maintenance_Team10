@@ -1,0 +1,48 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Helpdesk Maintenance Webhook", "version": "0.4", "description": "Receiver contract based on Team 14 proposal v0.4. Local tests only; no live Team 14 deployment has been verified." },
+  "paths": {
+    "/api/v1/webhooks/maintenance": {
+      "post": {
+        "summary": "Receive a signed Maintenance status change",
+        "parameters": [
+          { "name": "X-Correlation-Id", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-Timestamp", "in": "header", "required": true, "schema": { "type": "string", "pattern": "^[0-9]+$" } },
+          { "name": "X-Signature", "in": "header", "required": true, "schema": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object", "additionalProperties": false,
+            "required": ["eventId", "type", "occurredAt", "source", "subject", "data"],
+            "properties": {
+              "eventId": { "type": "string", "format": "uuid" },
+              "type": { "type": "string", "enum": ["maintenance.status_changed"] },
+              "occurredAt": { "type": "string", "format": "date-time" },
+              "source": { "type": "string", "enum": ["maintenance"] },
+              "subject": { "type": "string" },
+              "data": {
+                "type": "object", "additionalProperties": false,
+                "required": ["workOrderId", "previousStatus", "status", "changedAt"],
+                "properties": {
+                  "workOrderId": { "type": "string", "format": "uuid" },
+                  "ticketRef": { "type": "string", "pattern": "^TKT-[0-9]+$" },
+                  "previousStatus": { "type": "string", "nullable": true, "enum": ["reported", "assigned", "in_progress", "completed", "closed", null] },
+                  "status": { "type": "string", "enum": ["reported", "assigned", "in_progress", "completed", "closed"] },
+                  "changedAt": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          } } }
+        },
+        "responses": {
+          "200": { "description": "Accepted or duplicate eventId" },
+          "202": { "description": "Valid event for an unlinked work order" },
+          "400": { "description": "Malformed envelope or unknown status" },
+          "401": { "description": "Invalid signature or timestamp outside five minute window" },
+          "500": { "description": "Temporary receiver error; retry with backoff" }
+        }
+      }
+    }
+  }
+}

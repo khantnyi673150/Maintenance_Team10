@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       p_category_name: parsed.data!.category,
       p_location: parsed.data!.location,
       p_student_identity_status: identityCheck.identified ? "identified" : "not_identified",
+      ...(parsed.data!.ticketRef ? { p_ticket_ref: parsed.data!.ticketRef } : {}),
     });
     if (error) return supabaseErrorResponse(error);
     return Response.json({

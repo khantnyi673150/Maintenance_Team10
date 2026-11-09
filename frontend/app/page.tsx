@@ -85,6 +85,7 @@ export default function MaintenanceApp() {
 
   // Issue Reporting Form State
   const [reportTitle, setReportTitle] = useState("");
+  const [reportTicketRef, setReportTicketRef] = useState("");
   const [reportDesc, setReportDesc] = useState("");
   const [descriptionError, setDescriptionError] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -233,6 +234,7 @@ export default function MaintenanceApp() {
         setCategories([]);
         setLocations([]);
         setReportTitle("");
+        setReportTicketRef("");
         setReportDesc("");
         setDescriptionError(false);
         setReportLocation("");
@@ -504,6 +506,7 @@ export default function MaintenanceApp() {
           location_id: reportLocation,
           category_id: reportCategory,
           title: reportTitle.trim(),
+          ticketRef: reportTicketRef.trim() || undefined,
           description: reportDesc.trim(),
         }),
       });
@@ -512,6 +515,7 @@ export default function MaintenanceApp() {
       if (!isCurrentSubmission()) return;
       if (res.ok && typeof data?.id === "string" && data.id) {
         setCreatedOrderId(data.id);
+        setReportTicketRef("");
         setWorkOrders((previous) => [data as WorkOrder, ...previous.filter((order) => order.id !== data.id)]);
         setReportTitle("");
         setReportDesc("");
@@ -672,6 +676,13 @@ export default function MaintenanceApp() {
                   />
                 </div>
 
+                <div className="field">
+                  <label htmlFor="report-ticket-ref">Helpdesk ticket reference (optional)</label>
+                  <input id="report-ticket-ref" maxLength={62} pattern="TKT-[0-9]{1,58}" autoComplete="off"
+                    aria-describedby="report-ticket-ref-help" placeholder="e.g. TKT-00012"
+                    value={reportTicketRef} onChange={(event) => setReportTicketRef(event.target.value)} />
+                  <p id="report-ticket-ref-help" className="field-help">Enter the reference provided by Helpdesk, if you have one.</p>
+                </div>
                 <div className="field">
                   <label htmlFor="report-description">Description</label>
                   <textarea

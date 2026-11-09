@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectTickets, targetLabel } from "../lib/ticket-view.ts";
+import { selectTickets, targetLabel, workOrderLocation } from "../lib/ticket-view.ts";
 
 const categories = [{ id: "electrical", name: "Electrical", sla_hours: 8 }, { id: "hvac", name: "HVAC", sla_hours: 18 }];
 const base = { reporter_id: "user", location_id: "lab", category_id: "electrical", description: "Repair needed", updated_at: "2026-11-07T08:00:00Z" };
@@ -29,4 +29,10 @@ test("target labels distinguish due work from finished work and missing categori
   assert.deepEqual(targetLabel(orders[1], categories, now), { text: "Overdue by 8h", overdue: true });
   assert.deepEqual(targetLabel(orders[2], categories, now), { text: "Resolved", overdue: false });
   assert.equal(targetLabel(orders[0], [], now).text, "Target unavailable");
+});
+test("location labels fall back to the submitted free-text location", () => {
+  const order = { location_id: null, location_text: "C1, Room 204" };
+  assert.equal(workOrderLocation(order, []), "C1, Room 204");
+  assert.equal(workOrderLocation({ ...order, location_id: "c1" }, [{ id: "c1", building: "C1 campus", floor_room: "Lab 204" }]), "C1 campus · Lab 204");
+  assert.equal(workOrderLocation({ location_id: null }, []), "Location unavailable");
 });

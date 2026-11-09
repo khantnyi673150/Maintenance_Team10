@@ -24,7 +24,7 @@ type PublicTicket = {
   location: { building: string | null; floor_room: string | null };
 };
 
-const emptyForm = { title: "", description: "", category: "", location: "", student_id: "" };
+const emptyForm = { title: "", description: "", category: "", location: "", student_id: "", ticketRef: "" };
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
 
 export default function PublicReporterDashboard() {
@@ -102,6 +102,7 @@ export default function PublicReporterDashboard() {
         body: JSON.stringify({
           ...form,
           student_id: form.student_id.trim() || undefined,
+          ticketRef: form.ticketRef.trim() || undefined,
           category: form.category === "Unknown" ? null : form.category,
         }),
       });
@@ -161,6 +162,11 @@ export default function PublicReporterDashboard() {
               <label htmlFor="public-student-id">Student ID <span className="public-optional">(optional)</span></label>
               <input id="public-student-id" maxLength={100} autoComplete="off" value={form.student_id} onChange={(event) => setForm({ ...form, student_id: event.target.value })} placeholder="Enter your student ID to check" />
               <p className="field-help">We check the ID's consented claims for student verification and profile completeness. The result is shown on the public request card; the ID and claims are not saved. This verifies the entered ID's claims, not who submitted the report. Do not enter another person's ID.</p>
+            </div>
+            <div className="field">
+              <label htmlFor="public-ticket-ref">Helpdesk ticket reference <span className="public-optional">(optional)</span></label>
+              <input id="public-ticket-ref" maxLength={62} pattern="TKT-[0-9]{1,58}" autoComplete="off" aria-describedby="public-ticket-ref-help" value={form.ticketRef} onChange={(event) => setForm({ ...form, ticketRef: event.target.value })} placeholder="e.g. TKT-00012" />
+              <p id="public-ticket-ref-help" className="field-help">If Helpdesk sent you here, enter the ticket reference they provided.</p>
             </div>
             {submitError && <p className="request-action-error" role="alert">{submitError}</p>}
             <button type="submit" className="send-button">{submitting && <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}{submitting ? "Sending…" : "Send request"}</button>

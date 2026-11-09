@@ -2,6 +2,9 @@
   "name": "maintenance-team10-api",
   "private": true,
   "scripts": {
+    "test:helpdesk": "node --experimental-strip-types --test tests/helpdesk.test.ts tests/helpdesk-routes.test.mjs tests/public-student-identity-route.test.mjs",
+    "test:helpdesk:db": "node --experimental-strip-types --test tests/helpdesk-database.test.mjs",
+    "worker:helpdesk": "node --env-file-if-exists=.env.local scripts/helpdesk-worker.mjs",
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",

@@ -1,162 +1,107 @@
-# Campus Maintenance Management System – Dashboard Framework
+# Campus Maintenance Dashboard — Current Workflow
 
-## 1. Overview
+This document describes the dashboard as it is currently implemented in the Team 10 project. It replaces the earlier proposed workflow, which described separate category dashboards and features that are not part of the current application.
 
-The system will have two main user types:
+## 1. Application entry points
 
-1. **Reporter:** Can access the public dashboard without logging in to submit maintenance reports and track their progress.
-2. **Staff:** Must log in and select their working category directly on the login page.
+- The root page (`/`) opens the public reporter dashboard when there is no signed-in session. No account is needed to submit a public report or browse the public tracker.
+- Users can open `/login` to access an authenticated workspace. After signing in, the dashboard uses the account's administrator-controlled Supabase `app_metadata.role`; users cannot choose or change their role themselves.
+- Local reporter and staff previews are available from the login screen on supported loopback hosts. They use sample data, do not create a real session, and disable changes.
 
-The system will have four maintenance categories:
+See the [backend setup guide](./backend/README.md) for environment configuration and startup instructions.
 
-- Plumbing
-- Electrical
-- HVAC
-- Safety
+## 2. Public reporting and tracking
 
-In addition, there will be an **Admin role** responsible for reviewing unclear or insufficient ticket submissions and manually assigning them to the appropriate category.
+The public form accepts an issue title, description, location, a category, and an optional student ID:
 
-If a submitted ticket does not contain enough information for reliable classification, it will be sent to the Admin for manual review.
+1. The reporter selects Plumbing, Electrical, HVAC, or Safety, or selects **Not sure**.
+2. The report is sent to `POST /api/public/work-orders`.
+3. If a category is selected, the report is created in that category. **Not sure** is sent without a category and puts the report in the manual-review queue.
+4. The reporter receives a reference number and can use **Track request** to find the report in the public tracker.
 
-## 2. Reporter Flow (No Login Required)
+The public tracker is shared, not a private account-specific history. It provides search, status filtering, request details, and a refresh action. Public responses omit private fields such as reporter identity, assignments, staff notes, and audit history.
 
-**Public Dashboard → Submit Report → Category Classification → Track Ticket Progress**
+### Public status labels
 
-Reporters can:
+The database has five internal lifecycle statuses, while the public tracker groups them into three labels:
 
-- Access the public dashboard without creating an account.
-- Submit maintenance problems with descriptions and locations.
-- Receive a reference number after submitting a ticket.
-- View their submitted ticket history.
-- Track the progress of each ticket based on its current status.
+| Internal status | Public label |
+|---|---|
+| `OPEN` | Submitted |
+| `ASSIGNED` or `IN_PROGRESS` | In progress |
+| `RESOLVED` or `CLOSED` | Finished |
 
-### Ticket History and Status Tracking
+Consequently, the public tracker does not distinguish an assigned request from one being worked on, or a resolved request from a closed one.
 
-Reporters should be able to see the progress of their submitted tickets, including:
+## 3. Optional Student Identity claims check
 
-- **Submitted:** The ticket has been successfully received.
-- **In Progress:** Staff members are working on the reported problem.
-- **Resolved:** The reported problem has been fixed.
-- **Closed:** The maintenance request has been completed and closed.
+The public form optionally accepts a student ID. When provided, the backend calls the Student Identity claims endpoint using the server-side `STUDENT_IDENTITY_API_KEY`. The report is still saved if the ID is omitted or the service cannot confirm claims.
 
-Reporters should also be able to view the details and latest status of each submitted ticket.
+The result is marked **Student ID claims verified** only when both student verification and profile completeness are confirmed. Otherwise, the report shows **Student ID claims not verified**; older records without a stored result can show **Student ID not checked**.
 
-### Ticket Classification
+Only the result status is saved. The entered student ID and claims response are not stored in the work order. This check verifies claims for the entered ID; because the public form is anonymous, it does not prove that the reporter owns that ID and must not be used as authentication.
 
-After a reporter submits a ticket:
+Staff and administrators also have an **Identity test** view for manually inspecting claims when configured. It is separate from the public submission flow.
 
-- If the problem description is clear enough, the system classifies it into one of the four maintenance categories.
-- If the information is unclear or insufficient, the ticket is forwarded to the Admin for manual review.
-- The Admin reviews the ticket and assigns the appropriate category.
-- Once classified, the ticket becomes available to the corresponding maintenance staff.
+See [Student Identity Integration](./STUDENT_IDENTITY_INTEGRATION.md) for API configuration, consent, migration, and testing details.
 
-## 3. Staff Flow (Login Required)
+## 4. Authenticated workspaces
 
-**Staff Login Page → Select Category → Enter Credentials → Login → Category Dashboard**
+All protected API requests are checked by the backend using the signed-in Supabase user and trusted account metadata. The login page asks the user to select a workspace; for maintenance staff, the backend verifies the selected category is authorized. This selection does not grant a role or permissions.
 
-Staff members must select their working category directly on the login page before entering their credentials.
+### Reporter
 
-### Available Staff Categories
+An authenticated reporter can view **Overview**, **My requests**, and **Report an issue**. The authenticated request list is protected and scoped by the database policies. The reporter form uses the authenticated work-order API and requires a category and campus location.
 
-- **Plumbing:** Handles water supply, pipes, drainage, and related problems.
-- **Electrical:** Handles electrical systems, lighting, power, and related problems.
-- **HVAC:** Handles air conditioning, ventilation, and related problems.
-- **Safety:** Handles safety-related issues and potential hazards.
+### Maintenance staff
 
-After successful authentication, staff members are redirected to the dashboard corresponding to their selected category.
+Staff workspaces are selected by category: Plumbing, Electrical, HVAC, or Safety. Staff can view the overview, requests, dispatch board, and Identity test. The API scopes staff work orders to the authorized category and excludes requests that have not yet been classified.
 
-The system must verify that the staff account is authorized to access the selected category.
+The dispatch board supports the work-order lifecycle actions:
 
-## 4. Dashboard Overview
+1. `OPEN` → assign the request to the current staff member (`ASSIGNED`)
+2. `ASSIGNED` → start work (`IN_PROGRESS`)
+3. `IN_PROGRESS` → resolve the request (resolution notes required, `RESOLVED`)
+4. `RESOLVED` → close the request (`CLOSED`)
 
-### 4.1 Public Reporter Dashboard
+Updates are sent to the backend and reflected after the server confirms the change. The interface also shows request history, category repair targets, and overdue indicators.
 
-- Submit maintenance reports.
-- View submitted ticket history.
-- View individual ticket details.
-- Track ticket progress and status.
-- Receive submission confirmation and a reference number.
+### Administrator and manual review
 
-### 4.2 Plumbing Dashboard
+Administrators can view the maintenance overview, requests, the manual-review queue, and Identity test. Staff can select the **Manual Review** workspace at login; access to its review API is still protected by the backend's staff/admin role check. The review queue contains active reports whose category needs review.
 
-- View Plumbing-related reports.
-- View assigned work orders.
-- Update maintenance progress.
-- Update work-order status.
+An administrator or authorized review user selects one of the four maintenance categories and assigns it. Once classified, the report can appear in the matching staff category's work-order list. Manual classification does not itself advance the request's lifecycle status.
 
-### 4.3 Electrical Dashboard
+## 5. Overview and request tools
 
-- View Electrical-related reports.
-- View assigned work orders.
-- Update maintenance progress.
-- Update work-order status.
+The authenticated overview includes:
 
-### 4.4 HVAC Dashboard
+- Open request count
+- In-progress request count
+- Overdue/needs-attention count based on the category service target
+- Requests resolved this week
+- Recent status updates and requests requiring attention
 
-- View HVAC-related reports.
-- View assigned work orders.
-- Update maintenance progress.
-- Update work-order status.
+The request list supports searching by title or request ID, filtering by status and location, sorting by newest, oldest, or repair target, refreshing, and loading more results. Staff can perform lifecycle actions from the dispatch board. The dashboard's request details and history are available to authorized signed-in users.
 
-### 4.5 Safety Dashboard
+## 6. Categories and suggestions
 
-- View Safety-related reports.
-- View assigned work orders.
-- Update maintenance progress.
-- Update work-order status.
+The supported maintenance categories are Plumbing, Electrical, HVAC, and Safety. Category suggestions in the authenticated report flow are hints: users confirm their selection, and a suggested building does not silently replace the chosen location. On the public form, the reporter explicitly chooses a category or **Not sure**.
 
-### 4.6 Admin Dashboard
+An unclassified report is held for manual review rather than being shown as a classified request to maintenance staff. Classification and lifecycle status are separate: assigning a category does not mean work has been assigned or started.
 
-- View and manage all submitted reports.
-- Review tickets with unclear or insufficient information.
-- Manually classify tickets into Plumbing, Electrical, HVAC, or Safety.
-- Monitor staff activities and work assignments.
-- Monitor overall maintenance progress.
+## 7. Local development
 
-## 5. Ticket Classification Process
+Run the backend and frontend in separate PowerShell terminals from the project directory:
 
-The classification process will follow this flow:
+```powershell
+cd backend
+npm run dev
+```
 
-1. Reporter submits a maintenance ticket.
-2. The system checks whether the ticket information is clear enough for classification.
-3. If the information is clear, the ticket is assigned to the appropriate category.
-4. If the information is unclear or insufficient, the ticket is sent to the Admin for manual review.
-5. The Admin reviews the ticket and selects the correct category.
-6. The ticket becomes available to the corresponding maintenance staff.
+```powershell
+cd frontend
+npm run dev
+```
 
-## 6. Existing Maintenance Workflow
-
-The existing maintenance workflow will be maintained:
-
-`OPEN → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`
-
-The new dashboards and ticket classification process will connect to the existing maintenance and work-order system rather than replacing it.
-
-The reporter's ticket history will display understandable status labels corresponding to the existing workflow.
-
-## 7. Scope of Changes
-
-### What We Want to Add
-
-- Public reporter dashboard without login.
-- Ticket history and status tracking for reporters.
-- Staff login page with four maintenance category selections.
-- Role-based redirection after successful login.
-- Separate dashboards for Plumbing, Electrical, HVAC, and Safety.
-- Admin dashboard for manual ticket review and classification.
-- Ticket classification process for clear and unclear submissions.
-
-### What We Want to Keep
-
-- Existing maintenance process.
-- Existing work-order workflow.
-- Existing database and backend structure where possible.
-- Existing report status lifecycle.
-
-## 8. Main Objective
-
-The goal is to improve the Campus Maintenance Management System by separating public reporters from maintenance staff, organizing maintenance work into four categories, and allowing the Admin to manually review and classify unclear tickets.
-
-Reporters will be able to submit reports and follow their progress, while staff members will manage maintenance requests through their respective category dashboards.
-
-The new features should improve ticket organization, tracking, and management while keeping the existing maintenance workflow intact.
+The backend runs at `http://localhost:3000`; the frontend runs at `http://localhost:3001`. Configure each app's local environment file as described in its README. Keep backend secrets, including `STUDENT_IDENTITY_API_KEY` and the Supabase service-role key, out of the frontend environment and source control.

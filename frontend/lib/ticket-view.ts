@@ -3,13 +3,22 @@ export type WorkOrderStatus = (typeof STAGES)[number];
 export type LocationItem = { id: string; building: string; floor_room: string };
 export type CategoryItem = { id: string; name: string; sla_hours: number };
 export interface WorkOrder {
-  id: string; reporter_id: string | null; location_id: string; category_id: string;
+  id: string; reporter_id: string | null; location_id: string | null; location_text?: string | null; category_id: string;
   title: string; description: string; status: WorkOrderStatus;
   student_identity_status?: "identified" | "not_identified" | "not_checked";
   resolution_notes?: string | null; created_at: string; updated_at: string;
 }
 export type StatusUpdate = { order: WorkOrder; noticeId: number; expiresAt: number };
 export const statusLabel = (status: string) => status === "ALL" ? "All statuses" : status === "IN_PROGRESS" ? "In progress" : status.charAt(0) + status.slice(1).toLowerCase();
+
+export function workOrderLocation(order: Pick<WorkOrder, "location_id" | "location_text">, locations: LocationItem[]): string {
+  const location = locations.find((item) => item.id === order.location_id);
+  if (location) {
+    const label = [location.building, location.floor_room].filter(Boolean).join(" · ");
+    if (label) return label;
+  }
+  return order.location_text?.trim() || "Location unavailable";
+}
 
 export function targetTime(order: WorkOrder, categories: CategoryItem[]): number {
   const hours = categories.find((c) => c.id === order.category_id)?.sla_hours;
@@ -29,7 +38,7 @@ export function selectTickets(orders: WorkOrder[], categories: CategoryItem[], f
   const query = filters.query.trim().toLocaleLowerCase();
   return orders.filter((o) => (filters.status === "ALL" || o.status === filters.status)
     && (!filters.location || o.location_id === filters.location)
-    && (!query || `${o.title} ${o.id}`.toLocaleLowerCase().includes(query)))
+    && (!query || `${o.title} ${o.id} ${o.location_text ?? ""}`.toLocaleLowerCase().includes(query)))
     .sort((a, b) => {
       if (filters.sort === "oldest") return Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id);
       if (filters.sort === "urgent") {

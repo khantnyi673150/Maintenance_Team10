@@ -1,0 +1,22 @@
+simulation: maintenance-helpdesk
+routing: path
+mocks:
+  - name: Helpdesk accepted
+    routeKey: helpdesk
+    path: postman/mocks/helpdesk/config.yaml
+  - name: Helpdesk unavailable
+    routeKey: helpdesk-error
+    path: postman/mocks/helpdesk/config.yaml
+    scenarios:
+      - overrides:
+          conditions:
+            error:
+              status_code: 500
+  - name: Helpdesk timeout
+    routeKey: helpdesk-timeout
+    path: postman/mocks/helpdesk/config.yaml
+    scenarios:
+      - overrides:
+          conditions:
+            latency:
+              delay_ms: 4500
