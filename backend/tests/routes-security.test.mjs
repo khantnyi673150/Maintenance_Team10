@@ -53,6 +53,9 @@ globalThis.fetch = async (input, init) => {
     return Response.json({ id: "00000000-0000-4000-8000-000000000001", app_metadata: { role: "reporter" }, user_metadata: { role: "staff" } });
   }
   databaseCalls.push({ method: request.method, path: url.pathname, query: url.searchParams, token });
+  if (url.pathname === "/rest/v1/rpc/assign_work_order") {
+    return Response.json({ id: "00000000-0000-4000-8000-000000000010", status: "ASSIGNED", partner_source: null });
+  }
   if (request.method === "HEAD") return new Response(null, { status: dashboardCountFailure ? 503 : 200, headers: { "Content-Range": "*/7" } });
   if (url.pathname === "/rest/v1/categories") return Response.json([{ id: "00000000-0000-4000-8000-000000000020", sla_hours: 8 }]);
   if (url.pathname === "/rest/v1/rpc/classify_work_order") {
@@ -109,6 +112,14 @@ const identityRequest = (token, body) => {
 };
 
 describe("Actual route security boundaries", () => {
+  it("assigns ordinary campus tickets without scheduling a Team 12 webhook", async () => {
+    // The bare route handler has no Next.js after() context. Scheduling a
+    // webhook for this non-partner ticket would throw before returning.
+    const response = await staffRoutes[0].POST(request("POST", "staff-token", "{}"), context);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, "ASSIGNED");
+  });
+
   it("allows staff to inspect consented Student Identity claims without exposing the API key", async () => {
     const before = identityCalls.length;
     assert.equal((await studentIdentity.POST(identityRequest("reporter-token", '{"studentId":"student-fixture"}'))).status, 403);

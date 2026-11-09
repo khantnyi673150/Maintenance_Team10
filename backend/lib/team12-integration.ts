@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { after } from "next/server";
 import { deliverStatusChanged, partnerUrl, type DispatchStatusChangedInput } from "./webhook-delivery.ts";
 import { isConfiguredSecret } from "./security.ts";
-import { getStatusSequence } from "@/lib/status";
+import type { WorkOrderStatus } from "./types.ts";
 
 const partnerActivitiesUrl =
   process.env.TEAM12_PARTNER_ACTIVITIES_URL ??
@@ -106,7 +106,13 @@ export async function dispatchTeam12StatusChanged(input: DispatchStatusChangedIn
   console.info("Team 12 webhook delivered", delivered);
 }
 
-export function dispatchStatusChangedWithoutBlocking(input: DispatchStatusChangedInput): void {
+export function dispatchStatusChangedWithoutBlocking(
+  order: { id: string; partner_source?: string | null; activity_id?: string | null } | null,
+  fromStatus: WorkOrderStatus,
+  toStatus: WorkOrderStatus,
+): void {
+  if (order?.partner_source !== "team12") return;
+  const input = { workOrderId: order.id, fromStatus, toStatus, activityId: order.activity_id };
   after(async () => {
     try { await dispatchTeam12StatusChanged(input); } catch {
       console.error("Team 12 webhook delivery failed", { workOrderId: input.workOrderId, toStatus: input.toStatus });

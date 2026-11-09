@@ -18,11 +18,6 @@ export async function POST(request: Request, context: RouteContext) {
   });
 
   if (error) return supabaseErrorResponse(error);
-  dispatchStatusChangedWithoutBlocking({
-    workOrderId: id,
-    fromStatus: "ASSIGNED",
-    toStatus: "IN_PROGRESS",
-    activityId: (data as any)?.activity_id,
-  });
+  dispatchStatusChangedWithoutBlocking(data, "ASSIGNED", "IN_PROGRESS");
   return timedJson(data, auth.context!, databaseStartedAt);
 }
