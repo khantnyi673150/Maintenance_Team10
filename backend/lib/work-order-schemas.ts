@@ -16,6 +16,7 @@ export const createHelpdeskWorkOrderSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   description: descriptionSchema,
   location: z.string().trim().min(1).max(300).optional(),
+  category: z.enum(["Plumbing", "Electrical", "HVAC", "Safety"]).nullable().optional(),
 }).strict();
 
 export const listWorkOrdersQuerySchema = z.object({

@@ -20,10 +20,11 @@ export async function POST(request: Request) {
       p_title: parsed.data!.title,
       p_description: parsed.data!.description,
       p_location: parsed.data!.location ?? null,
+      ...(parsed.data!.category !== undefined ? { p_category: parsed.data!.category } : {}),
     }).abortSignal(AbortSignal.timeout(2500));
     if (error) {
       if (["22023", "23514", "22P02"].includes(error.code)) {
-        return access.error(400, "INVALID_REQUEST", "Check the ticket reference, title, description and optional location");
+        return access.error(400, "INVALID_REQUEST", "Check the ticket reference, title, description, location and category");
       }
       return access.error(503, "CREATION_UNAVAILABLE", "Work-order creation is temporarily unavailable; retry with the same ticketRef");
     }

@@ -38,7 +38,7 @@ test("Helpdesk migration, atomic outbox, permissions, lease recovery and real HT
     const migrations = ["001_initial_schema", "002_api_policies_and_lifecycle", "003_atomic_create_and_start",
       "006_partner_webhook_events", "008_partner_work_orders", "009_security_hardening", "010_public_reporter_dashboard",
       "011_admin_manual_review", "012_public_manual_location_and_category", "013_manual_review_assignment",
-      "014_public_student_identity_status", "015_helpdesk_integration", "016_helpdesk_direct_creation"];
+      "014_public_student_identity_status", "015_helpdesk_integration", "016_helpdesk_direct_creation", "017_helpdesk_category"];
     for (const name of migrations) {
       if (name === "009_security_hardening") await db.exec("grant all on all tables in schema public to anon,authenticated,service_role");
       const sql = readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), "utf8")
@@ -205,6 +205,14 @@ test("Helpdesk migration, atomic outbox, permissions, lease recovery and real HT
     assert.equal(await count(directId), 1, "A retry must not queue another reported event");
     assert.equal((await db.query("select count(*)::int as n from public.status_history where work_order_id=$1", [directId])).rows[0].n, 1);
     await assert.rejects(actor(staff, "select public.assign_work_order($1,$2)", [directId, staff]), { code: "23514" });
+    const reviewed = (await actor(staff, "select * from public.classify_work_order($1,$2)", [directId, category])).rows[0];
+    assert.equal(reviewed.category_id, category);
+    assert.equal(reviewed.classification_status, "classified");
+    assert.equal(reviewed.status, "OPEN", "Selecting a category does not advance the repair lifecycle");
+    assert.equal(await count(directId), 1, "Category review does not generate a false status event");
+    const assignedAfterReview = (await actor(staff, "select * from public.assign_work_order($1,$2)", [directId, staff])).rows[0];
+    assert.equal(assignedAfterReview.status, "ASSIGNED");
+    assert.equal(await count(directId), 2, "Reviewed Helpdesk repairs can enter the normal assignment lifecycle");
 
     const manualReplay = (await service(directSql, ["TKT-00012", "Changed", "Changed", null])).rows[0].result;
     assert.equal(manualReplay.duplicate, true);
@@ -230,6 +238,36 @@ test("Helpdesk migration, atomic outbox, permissions, lease recovery and real HT
     assert.equal((await db.query("select count(*)::int as n from public.work_orders where ticket_ref='TKT-10005'")).rows[0].n, 0);
     assert.equal((await db.query("select count(*)::int as n from public.helpdesk_creation_requests where ticket_ref='TKT-10005'")).rows[0].n, 0);
     assert.equal((await db.query("select count(*)::int as n from public.helpdesk_outbox")).rows[0].n, beforeAtomicFailure);
+    const categorizedSql = "select public.create_helpdesk_work_order($1,$2,$3,$4,$5) as result";
+    let categoryIndex = 0;
+    for (const categoryName of ["Plumbing", "Electrical", "HVAC", "Safety", null]) {
+      const args = [`TKT-2000${categoryIndex++}`, "Categorised repair", "Repair description", "B-204", categoryName];
+      await assert.rejects(asRole("anon", categorizedSql, args));
+      await assert.rejects(actor(reporter, categorizedSql, args));
+      const result = (await service(categorizedSql, args)).rows[0].result;
+      assert.equal(result.duplicate, false);
+      const order = (await db.query("select w.*, c.name as category_name from public.work_orders w left join public.categories c on c.id=w.category_id where w.id=$1", [result.work_order.id])).rows[0];
+      assert.equal(order.category_name, categoryName);
+      assert.equal(order.classification_status, categoryName === null ? "needs_review" : "classified");
+      assert.equal(order.status, "OPEN");
+      assert.equal(await count(order.id), 1);
+      const retry = (await service(categorizedSql, [...args.slice(0, 4), categoryName === "HVAC" ? "Electrical" : "HVAC"])).rows[0].result;
+      assert.equal(retry.duplicate, true);
+      assert.equal(retry.work_order.id, order.id);
+      assert.equal((await db.query("select category_id from public.work_orders where id=$1", [order.id])).rows[0].category_id, order.category_id);
+      assert.equal(await count(order.id), 1);
+      if (categoryName !== null) {
+        const assigned = (await actor(staff, "select * from public.assign_work_order($1,$2)", [order.id, staff])).rows[0];
+        assert.equal(assigned.status, "ASSIGNED", "A supplied valid category can enter normal assignment without Manual Review");
+      }
+    }
+    for (const badCategory of ["Unknown", "hvac", "", "Electrical API Test"]) {
+      await assert.rejects(service(categorizedSql, ["TKT-29999", "Test", "Description", null, badCategory]), { code: "22023" });
+    }
+    const legacyDuplicate = (await service(categorizedSql, ["TKT-00012", "Retry", "Retry", null, "HVAC"])).rows[0].result;
+    assert.equal(legacyDuplicate.duplicate, true);
+    assert.equal(legacyDuplicate.work_order.id, id);
+    assert.equal((await db.query("select category_id from public.work_orders where id=$1", [id])).rows[0].category_id, category);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(() => resolve()));

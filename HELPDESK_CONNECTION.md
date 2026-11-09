@@ -4,7 +4,7 @@ The code supports Team 14 proposal v0.4. Deployment and a joint test with Team 1
 
 ## Setup
 
-1. Apply migrations `015_helpdesk_integration.sql` and then `016_helpdesk_direct_creation.sql` after migration 014. Migration 016 is required for the direct-creation API.
+1. After migration 014, apply `015_helpdesk_integration.sql`, `016_helpdesk_direct_creation.sql`, then `017_helpdesk_category.sql`. Migration 016 enables direct creation; migration 017 adds the optional category field. Apply migration 017 before deploying category support.
 2. Set private backend environment variables from `backend/.env.example`:
    - `HELPDESK_API_KEY`: the dedicated lookup and direct-creation credential shared with Helpdesk.
    - `HELPDESK_WEBHOOK_URL`: Team 14's full receiver URL.
@@ -21,7 +21,7 @@ On Windows, `npm run worker:helpdesk:install --prefix backend` installs the `Mai
 
 ## Direct creation and manual backup
 
-`POST /api/v1/work-orders` uses the same Bearer credential as lookup. Send `X-Correlation-Id` and `Content-Type: application/json`. Required fields are `ticketRef`, `title` and `description`. `location` is optional. No category or personal information is required.
+`POST /api/v1/work-orders` uses the same Bearer credential as lookup. Send `X-Correlation-Id` and `Content-Type: application/json`. Required fields are `ticketRef`, `title` and `description`. `location` and `category` are optional. Personal information is not required.
 
 Example request: `{ "ticketRef": "TKT-00012", "title": "Air conditioner in room B-204 not working", "description": "It does not cool and makes a noise." }`.
 
@@ -29,7 +29,9 @@ A new request returns HTTP 201 with `{ "data": { "id": "<uuid>", "status": "repo
 
 Missing or invalid fields return HTTP 400 with `{ "error": { "code": "...", "message": "..." } }`. Unauthorised calls return 401. A temporary database error or timeout returns 503; retry using the same reference. Responses echo the correlation ID and disable caching.
 
-These repairs enter the existing staff review queue. Location is stored when provided; otherwise it is marked `Location to be confirmed`. The original title and description remain available for staff review. Category and location are not guessed from free text. The report screen and UUID linking remain available as a manual backup.
+Accepted category values are exactly `Plumbing`, `Electrical`, `HVAC` and `Safety` (case sensitive). A valid category is saved and the new repair enters that trade's normal assignment workflow. Omit category or send `null` to enter Manual Review. Unknown category strings return 400. The original three-field request remains supported.
+
+Location is stored when provided; otherwise it is marked `Location to be confirmed`. Category and location are not guessed from free text. Repeating a reference never changes its original category, title, description or location, including when the original request omitted category. The report screen and UUID linking remain available as a manual backup.
 
 ## Lookup
 

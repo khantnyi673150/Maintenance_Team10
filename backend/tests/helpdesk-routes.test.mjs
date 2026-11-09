@@ -125,11 +125,26 @@ test("direct creation retries return the existing work order with 200 and option
   assert.deepEqual(await replay.json(), await first.json());
 });
 
+test("direct creation accepts each category name and null without changing the response contract", async () => {
+  let index = 0;
+  for (const category of ["Plumbing", "Electrical", "HVAC", "Safety", null]) {
+    const body = { ticketRef: `TKT-2000${index++}`, title: "Category test", description: "Repair details", location: "B-204", category };
+    const response = await creation.POST(req("helpdesk-test-lookup", "POST", body));
+    assert.equal(response.status, 201);
+    assert.equal(calls.at(-1).body.p_category, category);
+    assert.deepEqual(Object.keys((await response.json()).data).sort(), ["id", "status", "ticketRef", "updatedAt"]);
+    const retry = await creation.POST(req("helpdesk-test-lookup", "POST", body));
+    assert.equal(retry.status, 200);
+  }
+});
+
 test("direct creation rejects missing, malformed and privileged fields with safe errors before RPC", async () => {
   const valid = { ticketRef: "TKT-10003", title: "Broken light", description: "The light is out." };
   const badBodies = [undefined, {}, { ...valid, ticketRef: "" }, { ...valid, title: " " },
     { ...valid, description: "" }, { ...valid, ticketRef: "WO-12" }, { ...valid, status: "CLOSED" },
-    { ...valid, reporter_id: id }, { ...valid, location: "" }, { ...valid, title: "x".repeat(201) }];
+    { ...valid, reporter_id: id }, { ...valid, location: "" }, { ...valid, title: "x".repeat(201) },
+    { ...valid, category: "Unknown" }, { ...valid, category: "" }, { ...valid, category: "hvac" },
+    { ...valid, category: { id } }, { ...valid, category_id: id }];
   const before = calls.length;
   for (const body of badBodies) {
     const response = await creation.POST(req("helpdesk-test-lookup", "POST", body));
