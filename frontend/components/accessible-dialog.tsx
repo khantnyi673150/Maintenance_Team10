@@ -4,8 +4,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 // Native modal dialogs provide focus containment and make the background inert.
-export default function AccessibleDialog({ title, id, busy = false, onClose, children }: {
-  title: string; id: string; busy?: boolean; onClose: () => void; children: ReactNode;
+export default function AccessibleDialog({ title, id, busy = false, onClose, children, className }: {
+  title: string; id: string; busy?: boolean; onClose: () => void; children: ReactNode; className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function AccessibleDialog({ title, id, busy = false, onClose, chi
       (dialog.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href]') ?? dialog).focus();
     }
   });
-  return <dialog ref={ref} tabIndex={-1} className="ux-dialog" aria-labelledby={`${id}-title`} aria-busy={busy}
+  return <dialog ref={ref} tabIndex={-1} className={className ? `ux-dialog ${className}` : "ux-dialog"} aria-labelledby={`${id}-title`} aria-busy={busy}
     onCancel={(e) => { e.preventDefault(); if (!busy) onClose(); }}
     onClick={(e) => {
       const rect = e.currentTarget.getBoundingClientRect();

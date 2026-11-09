@@ -47,6 +47,13 @@ globalThis.fetch = async (input, init) => {
   databaseCalls.push({ method: request.method, path: url.pathname, query: url.searchParams, token });
   if (request.method === "HEAD") return new Response(null, { status: dashboardCountFailure ? 503 : 200, headers: { "Content-Range": "*/7" } });
   if (url.pathname === "/rest/v1/categories") return Response.json([{ id: "00000000-0000-4000-8000-000000000020", sla_hours: 8 }]);
+  if (url.pathname === "/rest/v1/rpc/classify_work_order") {
+    assert.equal(token, "staff-token");
+    const { p_work_order_id, p_category_id } = await request.json();
+    assert.equal(p_work_order_id, "00000000-0000-4000-8000-000000000010");
+    assert.equal(p_category_id, "22222222-2222-2222-2222-222222222222");
+    return Response.json({ id: p_work_order_id, category_id: p_category_id, status: "OPEN" });
+  }
   if (url.pathname === "/rest/v1/status_history") return Response.json([]);
   if (url.pathname === "/rest/v1/work_orders" && url.searchParams.get("select") === "id,reporter_id") return Response.json([
     { id: "00000000-0000-4000-8000-000000000010", reporter_id: "00000000-0000-4000-8000-000000000001" },
@@ -71,6 +78,7 @@ const load = (path) => import(new URL(path, root));
 const workOrders = await load("app/api/work-orders/route.ts");
 const categorize = await load("app/api/ai/categorize/route.ts");
 const dashboard = await load("app/api/dashboard/route.ts");
+const reviews = await load("app/api/admin/reviews/route.ts");
 const submitters = await load("app/api/work-orders/submitters/route.ts");
 const order = await load("app/api/work-orders/[id]/route.ts");
 const partner = await load("app/api/partner/work-orders/route.ts");
@@ -82,6 +90,20 @@ const request = (method, token, body) => new Request("http://localhost/api/work-
   headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" }, body });
 
 describe("Actual route security boundaries", () => {
+  it("accepts the existing seeded Plumbing UUID when assigning a category", async () => {
+    const categoryId = "22222222-2222-2222-2222-222222222222";
+    const patch = (id) => new Request("http://localhost/api/admin/reviews?id=00000000-0000-4000-8000-000000000010", {
+      method: "PATCH",
+      headers: { Authorization: "Bearer staff-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ category_id: id }),
+    });
+    const before = databaseCalls.length;
+    assert.equal((await reviews.PATCH(patch("not-a-uuid"))).status, 400);
+    assert.equal(databaseCalls.length, before);
+    const response = await reviews.PATCH(patch(categoryId));
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).data.category_id, categoryId);
+  });
   it("keeps improved category decisions authenticated, validated and hint-only", async () => {
     const body = JSON.stringify({ description: "The AC isn't cooling at E1." });
     assert.equal((await categorize.POST(request("POST", undefined, body))).status, 401);

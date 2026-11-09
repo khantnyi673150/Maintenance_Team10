@@ -14,7 +14,7 @@
 .nav-tab.active { background: #fbefed; color: #9f2028; }
 .nav-tabs:has(.nav-tab:nth-child(2):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
-.request-toolbar { display: grid; grid-template-columns: minmax(190px, 1.5fr) repeat(3, minmax(130px, 1fr)) auto; gap: 12px; align-items: end; }
+.request-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 190px) auto; gap: 12px; align-items: end; }
 .request-toolbar label { display: block; margin-bottom: 7px; color: #55545b; font-size: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }
 .request-toolbar input, .request-toolbar select { min-height: 44px; font-size: 14px; padding: 10px; background: #fff; }
 .request-toolbar > button { min-height: 44px; justify-content: center; }
@@ -90,7 +90,7 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .app-shell .panel label, .ux-dialog label { font-size: 13px; text-transform: none; letter-spacing: 0; }
 .app-shell .panel h2 { font-size: 23px; }
 .app-shell .panel input, .app-shell .panel select, .app-shell .panel textarea, .ux-dialog textarea { font-size: 16px; }
-@media (max-width: 1000px) { .request-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .request-search { grid-column: 1 / -1; } .request-toolbar > button { align-self: end; } }
+@media (max-width: 580px) { .request-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .request-search { grid-column: 1 / -1; } }
 @media (max-width: 580px) {
   .app-shell { padding: 16px 14px 32px; }
   .app-shell .topbar { display: block; margin-bottom: 12px; }
@@ -110,7 +110,6 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
   .nav-tab svg { width: 17px; height: 17px; }
   .request-toolbar { gap: 10px; }
   .request-toolbar select, .request-toolbar input { font-size: 16px; }
-  .request-toolbar > button { grid-column: 1 / -1; }
   .request-row { padding: 16px; }
   .request-row-heading { flex-direction: column; gap: 8px; }
   .request-row-heading h2 { font-size: 16px; }
@@ -121,4 +120,24 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
   .report-select-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .ux-dialog { padding: 20px; }
   .ux-dialog-header h2 { font-size: 20px; }
+}
+
+.request-more-filters { margin-top: 8px; }
+.request-more-filters summary { width: fit-content; min-height: 44px; padding: 11px 4px; color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; }
+.request-extra-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+.request-extra-filters label, .review-actions label { display: block; margin-bottom: 6px; color: var(--foreground); font-size: 14px; letter-spacing: normal; text-transform: none; }
+.request-extra-filters select, .review-actions select { min-height: 44px; font-size: 16px; }
+.workspace-report-card { max-width: 780px; margin: 0 auto; }
+.workspace-report-card .category-suggest-button { width: fit-content; min-height: 44px; margin-top: 3px; }
+.workspace-report-card .report-select-grid { margin-bottom: 4px; }
+.workspace-report-card .field-help { margin-bottom: 0; }
+.review-count { margin: 0; color: var(--text-secondary); font-size: 14px; }
+.admin-review-panel .overview-panel-heading .btn-switch-role { min-height: 44px; }
+.admin-review-panel .compact-request-header .overview-link { min-height: 44px; flex-shrink: 0; }
+.admin-review-panel .request-row-meta { margin: 4px 0 0; overflow-wrap: anywhere; }
+.review-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; max-width: 520px; margin-top: 14px; }
+.review-actions .field { margin: 0; gap: 0; }
+.review-actions .send-button { width: auto; padding: 10px 16px; }
+@media (max-width: 440px) {
+  .request-extra-filters, .review-actions { grid-template-columns: minmax(0, 1fr); }
 }

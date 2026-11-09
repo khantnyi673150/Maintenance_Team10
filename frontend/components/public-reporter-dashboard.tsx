@@ -1,136 +1,188 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { CheckCircle2, LoaderCircle, RefreshCw, Search, Wrench } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, MapPin, Plus, RefreshCw, Search } from "lucide-react";
+import AccessibleDialog from "@/components/accessible-dialog";
+import { CampusHeader } from "@/components/campus-brand";
 
-type PublicCategory = { id: string; name: string; sla_hours?: number };
-type PublicLocation = { id: string; building: string; floor_room: string };
-const reporterCategories = ["Plumbing", "Electrical", "HVAC", "Safety"] as const;
+const categories = ["Plumbing", "Electrical", "HVAC", "Safety"];
+const statuses = {
+  STARTED: { label: "Submitted", badge: "OPEN" },
+  IN_PROGRESS: { label: "In progress", badge: "IN_PROGRESS" },
+  FINISHED: { label: "Finished", badge: "CLOSED" },
+} as const;
+
 type PublicTicket = {
   reference_number: string;
   title: string;
   description: string;
-  status: "STARTED" | "IN_PROGRESS" | "FINISHED";
-  created_at: string;
+  status: keyof typeof statuses;
   updated_at: string;
-  category: { id: string | null; name: string };
-  location: PublicLocation;
+  category: { name: string };
+  location: { building: string | null; floor_room: string | null };
 };
 
-const statusLabels = {
-  STARTED: "Started",
-  IN_PROGRESS: "In progress",
-  FINISHED: "Finished / Fixed",
-} as const;
+const emptyForm = { title: "", description: "", category: "", location: "" };
+const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
 
 export default function PublicReporterDashboard() {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
-  const [categories, setCategories] = useState<PublicCategory[]>([]);
+  const [view, setView] = useState<"report" | "track">("report");
   const [tickets, setTickets] = useState<PublicTicket[]>([]);
-  const [filter, setFilter] = useState<"ALL" | keyof typeof statusLabels>("ALL");
+  const [filter, setFilter] = useState<"ALL" | keyof typeof statuses>("ALL");
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedReference, setSubmittedReference] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", category: "", location: "" });
+  const [form, setForm] = useState(emptyForm);
+  const [detailReference, setDetailReference] = useState<string | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const submittingRef = useRef(false);
 
-  const loadData = useCallback(async () => {
+  const loadTickets = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     setLoading(true);
     setError(null);
     try {
-      const [metadataResponse, ticketsResponse] = await Promise.all([
-        fetch(`${apiBase}/public/metadata`, { cache: "no-store" }),
-        fetch(`${apiBase}/public/work-orders?limit=100`, { cache: "no-store" }),
-      ]);
-      if (!metadataResponse.ok || !ticketsResponse.ok) throw new Error("The public dashboard is unavailable.");
-      const metadata = await metadataResponse.json();
-      const ticketData = await ticketsResponse.json();
-      setCategories(Array.isArray(metadata.data?.categories) ? metadata.data.categories : []);
-      setTickets(Array.isArray(ticketData.data) ? ticketData.data : []);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "The public dashboard is unavailable.");
+      const response = await fetch(apiBase + "/public/work-orders?limit=100", { cache: "no-store", signal: controller.signal });
+      if (!response.ok) throw new Error("Couldn’t load requests.");
+      const result = await response.json();
+      if (!Array.isArray(result.data)) throw new Error("Couldn’t load requests.");
+      if (!controller.signal.aborted) setTickets(result.data);
+    } catch {
+      if (!controller.signal.aborted) setError("Couldn’t load requests. Try refreshing.");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
-  }, [apiBase]);
+  }, []);
 
-  useEffect(() => { void loadData(); }, [loadData]);
   useEffect(() => {
-    const refreshTimer = window.setInterval(() => { void loadData(); }, 30000);
-    return () => window.clearInterval(refreshTimer);
-  }, [loadData]);
+    if (view !== "track") return;
+    void loadTickets();
+    const timer = window.setInterval(() => void loadTickets(), 30000);
+    return () => {
+      window.clearInterval(timer);
+      request.current?.abort();
+    };
+  }, [view, loadTickets]);
 
-  const visibleTickets = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return tickets.filter((ticket) => {
-      const matchesStatus = filter === "ALL" || ticket.status === filter;
-      const matchesSearch = !query || [ticket.reference_number, ticket.title, ticket.description, ticket.category.name, ticket.location.building, ticket.location.floor_room]
-        .some((value) => value.toLowerCase().includes(query));
-      return matchesStatus && matchesSearch;
-    });
-  }, [filter, search, tickets]);
+  const query = search.trim().toLowerCase();
+  const visibleTickets = tickets.filter((ticket) => {
+    const matchesStatus = filter === "ALL" || ticket.status === filter;
+    const matchesSearch = !query || [ticket.reference_number, ticket.title, ticket.description, ticket.category.name, ticket.location.building, ticket.location.floor_room]
+      .some((value) => value?.toLowerCase().includes(query));
+    return matchesStatus && matchesSearch;
+  });
+  const detail = tickets.find((ticket) => ticket.reference_number === detailReference);
+
+  function trackSubmission(reference: string) {
+    setSearch(reference);
+    setFilter("ALL");
+    setView("track");
+  }
 
   async function submitTicket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     setSubmittedReference(null);
     try {
-      const response = await fetch(`${apiBase}/public/work-orders`, {
+      const response = await fetch(apiBase + "/public/work-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, category: form.category === "Unknown" ? null : form.category }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.message ?? "The ticket could not be submitted.");
+      if (!response.ok) throw new Error(result.error?.message ?? "Couldn’t send your request.");
+      if (typeof result.data?.reference_number !== "string" || !result.data.reference_number) {
+        throw new Error("Couldn’t confirm the request. Check the tracker before sending again.");
+      }
       setSubmittedReference(result.data.reference_number);
-      setForm({ title: "", description: "", category: "", location: "" });
-      await loadData();
-    } catch (submitFailure) {
-      setSubmitError(submitFailure instanceof Error ? submitFailure.message : "The ticket could not be submitted.");
+      setForm(emptyForm);
+    } catch (failure) {
+      setSubmitError(failure instanceof Error ? failure.message : "Couldn’t send your request.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
 
-  return (
-    <main className="public-dashboard">
-      <header className="public-header">
-        <div className="public-brand"><span className="public-brand-mark"><Wrench size={22} aria-hidden="true" /></span><div><strong>Campus Maintenance</strong><span>Mae Fah Luang University</span></div></div>
-        <a className="public-staff-link" href="/login">Staff sign in</a>
-      </header>
-      <section className="public-hero">
-        <div><p className="public-eyebrow">PUBLIC REPORTER DASHBOARD</p><h1>Help us keep campus running.</h1><p>Report a maintenance issue without creating an account, then use the public tracker to follow its latest status.</p></div>
-        <div className="public-status-note"><CheckCircle2 size={20} aria-hidden="true" /><span>Every ticket follows Started → In progress → Finished / Fixed.</span></div>
-      </section>
+  return <div className="public-dashboard">
+    <CampusHeader action={<Link className="btn-switch-role" href="/login">Staff sign in<ArrowRight size={16} aria-hidden="true" /></Link>} />
+    <main className="public-main">
+      <div className="public-page-heading">
+        <h1>Maintenance requests</h1>
+        <p>Report a campus issue or check a repair.</p>
+      </div>
+      <nav className="public-navigation" aria-label="Public maintenance">
+        <button type="button" aria-current={view === "report" ? "page" : undefined} onClick={() => setView("report")}><Plus size={18} aria-hidden="true" />Report an issue</button>
+        <button type="button" aria-current={view === "track" ? "page" : undefined} onClick={() => setView("track")}><ClipboardList size={18} aria-hidden="true" />Track requests</button>
+      </nav>
 
-      <section className="public-grid">
-        <form className="public-card public-report-card" onSubmit={submitTicket} aria-busy={submitting}>
-          <div className="public-card-heading"><p className="public-card-kicker">SUBMIT A REPORT</p><h2>What needs attention?</h2><p>No account or personal information is required.</p></div>
-          <label>Issue title<input required maxLength={200} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Light is not working in Room 204" /></label>
-          <label>Description<textarea required maxLength={10000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe the issue, visible symptoms, and anything staff should know. Do not include names, phone numbers, or passwords." /></label>
-          <div className="public-form-grid">
-            <label>Location<input required maxLength={300} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="e.g. C1, Floor 2, Room 204" /></label>
-            <label>Category<select required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}><option value="">Choose category</option>{reporterCategories.map((category) => <option key={category} value={category}>{category}</option>)}<option value="Unknown">Unknown — send to Manual Review</option></select></label>
-          </div>
-          <p className="public-privacy-note">For your privacy, public ticket text is filtered for common contact details. Please avoid personal or sensitive information.</p>
-          {submitError && <p className="public-form-error" role="alert">{submitError}</p>}
-          {submittedReference && <p className="public-success" role="status"><CheckCircle2 size={17} aria-hidden="true" />Submitted. Reference: <strong>{submittedReference}</strong></p>}
-          <button className="public-submit" disabled={submitting}>{submitting ? <><LoaderCircle size={17} className="animate-spin" aria-hidden="true" />Submitting…</> : "Submit maintenance report"}</button>
+      {view === "report" ? <section className="public-card" aria-labelledby="report-heading">
+        <h2 id="report-heading">Report an issue</h2>
+        {submittedReference && <div className="public-confirmation" role="status">
+          <CheckCircle2 size={20} aria-hidden="true" />
+          <div><strong>Request sent</strong><p>Reference {submittedReference}</p></div>
+          <button type="button" className="overview-link" onClick={() => trackSubmission(submittedReference)}>Track request<ArrowRight size={16} aria-hidden="true" /></button>
+        </div>}
+        <form onSubmit={submitTicket} aria-busy={submitting}>
+          <fieldset className="public-fields" disabled={submitting}>
+            <legend className="sr-only">Issue details</legend>
+            <div className="field"><label htmlFor="public-title">Issue title</label><input id="public-title" required maxLength={200} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Broken light in Room 204" /></div>
+            <div className="field"><label htmlFor="public-description">Description</label><textarea id="public-description" aria-describedby="public-privacy" required maxLength={10000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="What happened?" /><p id="public-privacy" className="field-help">This report is public. Leave out personal information.</p></div>
+            <div className="report-select-grid">
+              <div className="field"><label htmlFor="public-location">Location</label><input id="public-location" required maxLength={300} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="e.g. C1, Room 204" /></div>
+              <div className="field"><label htmlFor="public-category">Category</label><select id="public-category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}><option value="">Choose a category</option>{categories.map((category) => <option key={category}>{category}</option>)}<option value="Unknown">Not sure</option></select></div>
+            </div>
+            {submitError && <p className="request-action-error" role="alert">{submitError}</p>}
+            <button type="submit" className="send-button">{submitting && <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}{submitting ? "Sending…" : "Send request"}</button>
+          </fieldset>
         </form>
+      </section> : <section className="public-card" aria-labelledby="tracker-heading" aria-busy={loading}>
+        <h2 id="tracker-heading">Track requests</h2>
+        <div className="public-toolbar">
+          <label className="public-search"><Search size={18} aria-hidden="true" /><span className="sr-only">Search requests</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by reference, title or location" /></label>
+          <select aria-label="Request status" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="ALL">All statuses</option>{Object.entries(statuses).map(([key, status]) => <option key={key} value={key}>{status.label}</option>)}</select>
+          <button type="button" className="btn-switch-role public-refresh" onClick={() => void loadTickets()} disabled={loading} aria-label="Refresh requests"><RefreshCw size={18} aria-hidden="true" /></button>
+        </div>
+        {error && <p className="request-action-error" role="alert">{error}</p>}
+        {loading && !tickets.length && <p className="overview-empty" role="status">Loading requests…</p>}
+        {!loading && !error && !visibleTickets.length && <div className="overview-empty public-empty">
+          <p>{query || filter !== "ALL" ? "No matching requests." : "No requests yet."}</p>
+          {(query || filter !== "ALL") && <button type="button" className="text-button" onClick={() => { setSearch(""); setFilter("ALL"); }}>Clear filters</button>}
+        </div>}
+        <div className="request-list">
+          {visibleTickets.map((ticket) => <article className="request-row public-ticket" key={ticket.reference_number}>
+            <div className="compact-request-header">
+              <div><h3>{ticket.title}</h3><p className="request-row-meta"><span><MapPin size={15} aria-hidden="true" />{[ticket.location.building, ticket.location.floor_room].filter(Boolean).join(" · ") || "Location unavailable"}</span></p></div>
+              <span className={"overview-badge " + statuses[ticket.status].badge}>{statuses[ticket.status].label}</span>
+            </div>
+            <div className="public-ticket-footer">
+              <span>{ticket.category.name} · {ticket.reference_number}</span>
+              <button type="button" className="overview-link" onClick={() => setDetailReference(ticket.reference_number)}>Details<ArrowRight size={16} aria-hidden="true" /><span className="sr-only"> for {ticket.title}</span></button>
+            </div>
+          </article>)}
+        </div>
+      </section>}
 
-        <section className="public-card public-tracker-card" aria-labelledby="public-tracker-title">
-          <div className="public-card-heading"><p className="public-card-kicker">PUBLIC TICKET TRACKER</p><h2 id="public-tracker-title">Submitted maintenance tickets</h2><p>Search by reference, issue, category, or location.</p></div>
-          <div className="public-toolbar"><label className="public-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Search tickets</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tickets" /></label><button type="button" className="public-refresh" onClick={() => void loadData()} aria-label="Refresh tickets"><RefreshCw size={17} aria-hidden="true" /></button></div>
-          <div className="public-filters" role="tablist" aria-label="Ticket status"><button type="button" className={filter === "ALL" ? "active" : ""} onClick={() => setFilter("ALL")}>All</button>{Object.entries(statusLabels).map(([key, label]) => <button type="button" className={filter === key ? "active" : ""} key={key} onClick={() => setFilter(key as keyof typeof statusLabels)}>{label}</button>)}</div>
-          {error && <div className="public-empty" role="alert"><p>{error}</p><button type="button" onClick={() => void loadData()}>Try again</button></div>}
-          {loading && !error && <p className="public-loading" role="status">Loading submitted tickets…</p>}
-          {!loading && !error && !visibleTickets.length && <div className="public-empty"><p>No tickets match this view.</p></div>}
-          <div className="public-ticket-list">{visibleTickets.map((ticket) => <article className="public-ticket" key={ticket.reference_number}><div className="public-ticket-top"><div><p className="public-reference">REF {ticket.reference_number}</p><h3>{ticket.title}</h3></div><span className={`public-status ${ticket.status.toLowerCase()}`}>{statusLabels[ticket.status]}</span></div><p className="public-ticket-description">{ticket.description}</p><div className="public-ticket-meta"><span>{ticket.category.name}</span><span>{ticket.location.building} · {ticket.location.floor_room}</span><time dateTime={ticket.updated_at}>Updated {new Date(ticket.updated_at).toLocaleString()}</time></div></article>)}</div>
-        </section>
-      </section>
+      {detail && <AccessibleDialog id="public-ticket-details" title="Request details" onClose={() => setDetailReference(null)}>
+        <h3 className="request-detail-title">{detail.title}</h3>
+        <p className="dialog-description">{detail.description}</p>
+        <dl className="public-detail-list">
+          <div><dt>Reference</dt><dd>{detail.reference_number}</dd></div>
+          <div><dt>Status</dt><dd>{statuses[detail.status].label}</dd></div>
+          <div><dt>Location</dt><dd>{[detail.location.building, detail.location.floor_room].filter(Boolean).join(" · ") || "Location unavailable"}</dd></div>
+          <div><dt>Category</dt><dd>{detail.category.name}</dd></div>
+          <div><dt>Updated</dt><dd><time dateTime={detail.updated_at}>{new Date(detail.updated_at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok" })}</time></dd></div>
+        </dl>
+      </AccessibleDialog>}
     </main>
-  );
+  </div>;
 }

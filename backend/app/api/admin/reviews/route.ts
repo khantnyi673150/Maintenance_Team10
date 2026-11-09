@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { errorResponse, readJson, supabaseErrorResponse, timedJson } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
+import { uuidSchema } from "@/lib/work-order-schemas";
 
-const reviewSchema = z.object({ category_id: z.string().uuid() });
+const reviewSchema = z.object({ category_id: uuidSchema });
 
 export async function GET(request: Request) {
   const auth = await requireAuth(request, ["staff", "admin"]);
@@ -21,18 +22,16 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const auth = await requireAuth(request, ["staff", "admin"]);
   if (auth.response) return auth.response;
-  const id = new URL(request.url).searchParams.get("id");
-  if (!id || !z.string().uuid().safeParse(id).success) return errorResponse(400, "INVALID_ID", "A valid work-order id is required");
+  const id = uuidSchema.safeParse(new URL(request.url).searchParams.get("id"));
+  if (!id.success) return errorResponse(400, "INVALID_ID", "A valid work-order id is required");
   const parsed = await readJson(request, reviewSchema);
   if (parsed.response) return parsed.response;
-  const { data, error } = await auth.context!.supabase
-    .from("work_orders")
-    .update({ category_id: parsed.data!.category_id, classification_status: "classified" })
-    .eq("id", id)
-    .eq("classification_status", "needs_review")
-    .select("*")
-    .maybeSingle();
+  const started = performance.now();
+  const { data, error } = await auth.context!.supabase.rpc("classify_work_order", {
+    p_work_order_id: id.data,
+    p_category_id: parsed.data!.category_id,
+  });
   if (error) return supabaseErrorResponse(error);
   if (!data) return errorResponse(404, "REVIEW_NOT_FOUND", "This review is no longer available");
-  return timedJson({ data }, auth.context!, performance.now());
+  return timedJson({ data }, auth.context!, started);
 }

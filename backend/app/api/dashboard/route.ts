@@ -15,6 +15,7 @@ export async function GET(request: Request) {
       const query = count ? supabase.from("work_orders").select("id", { count: "exact", head: true })
         : supabase.from("work_orders").select("*");
       const active = query.is("archived_at", null);
+      if (role === "staff") active.eq("classification_status", "classified");
       const scoped = role === "reporter" ? active.eq("reporter_id", user.id) : active;
       return scopedCategoryId ? scoped.eq("category_id", scopedCategoryId) : scoped;
     };
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
         ? supabase.from("status_history").select("id,work_orders!inner(id)", { count: "exact", head: true })
         : supabase.from("status_history").select("id,from_status,to_status,timestamp,work_orders!inner(*)");
       const active = query.is("work_orders.archived_at", null);
+      if (role === "staff") active.eq("work_orders.classification_status", "classified");
       const scoped = role === "reporter" ? active.eq("work_orders.reporter_id", user.id) : active;
       return scopedCategoryId ? scoped.eq("work_orders.category_id", scopedCategoryId) : scoped;
     };

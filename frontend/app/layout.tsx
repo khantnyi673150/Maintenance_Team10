@@ -4,6 +4,7 @@ import "./globals.css";
 import "./workspace.css";
 import "./dashboard.css";
 import "./request-cards.css";
+import "./public.css";
 
 
 export const metadata: Metadata = {

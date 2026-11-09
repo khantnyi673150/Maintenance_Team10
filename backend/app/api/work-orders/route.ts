@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     .is("archived_at", null)
     .order("created_at", { ascending: false })
     .range(filters.data.offset, filters.data.offset + filters.data.limit - 1);
+  if (auth.context!.role === "staff") query = query.eq("classification_status", "classified");
   if (auth.context!.category) {
     const category = await supabase.from("categories").select("id").eq("name", auth.context!.category).maybeSingle();
     if (category.error) return supabaseErrorResponse(category.error);

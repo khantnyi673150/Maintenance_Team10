@@ -176,6 +176,7 @@ export default function MaintenanceApp() {
   }, []);
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
+  const isManualReview = role === "staff" && maintenanceCategory === "Manual Review";
   const authHeaders = (jwt: string): Record<string, string> => ({
     Authorization: `Bearer ${jwt}`,
     ...(role === "staff" && maintenanceCategory && maintenanceCategory !== "Manual Review"
@@ -382,7 +383,7 @@ export default function MaintenanceApp() {
     }
   }, [apiBase, role, maintenanceCategory]);
 
-  useEffect(() => { if (token && activeTab === "overview") void loadDashboard(token); }, [token, activeTab, loadDashboard]);
+  useEffect(() => { if (token && activeTab === "overview" && !isManualReview) void loadDashboard(token); }, [token, activeTab, isManualReview, loadDashboard]);
 
   const submitterIds = role === "staff" ? Array.from(new Set([...workOrders, ...(dashboard?.orders ?? [])].map((order) => order.id))).join(",") : "";
   useEffect(() => {
@@ -405,10 +406,10 @@ export default function MaintenanceApp() {
   }, [token, role, submitterIds, apiBase]);
 
   useEffect(() => {
-    if (token) {
+    if (token && !isManualReview) {
       loadWorkOrders(token);
     }
-  }, [token, loadWorkOrders]);
+  }, [token, isManualReview, loadWorkOrders]);
 
   useEffect(() => { if (token) void loadMetadata(token); }, [token, loadMetadata]);
 
@@ -582,6 +583,7 @@ export default function MaintenanceApp() {
   }
 
   function dispatchAction(order: WorkOrder) {
+    if (isManualReview) return;
     if (order.status === "IN_PROGRESS") { setResolveModal({ open: true, workOrderId: order.id, notes: "", loading: false }); return; }
     const action = { OPEN: "assign", ASSIGNED: "in-progress", RESOLVED: "close" }[order.status as "OPEN" | "ASSIGNED" | "RESOLVED"];
     if (action) void performAction(order, action, order.status === "OPEN" ? { staff_id: currentUserId } : undefined);
@@ -624,36 +626,43 @@ export default function MaintenanceApp() {
   if (!token && !demoMode) return <PublicReporterDashboard />;
 
   return (
-    <WorkspaceShell activeTab={activeTab} role={role} name={displayName || currentEmail} demo={demoMode} maintenanceCategory={maintenanceCategory} onNavigate={(tab) => { if ((tab !== "dispatch" || role === "staff") && (tab !== "reviews" || role === "admin" || (role === "staff" && maintenanceCategory === "Manual Review"))) setActiveTab(tab); }} onSignOut={() => void signOut()}>
-      {activeTab === "overview" && <MaintenanceOverview role={role} data={dashboard} loading={dashboardLoading} error={dashboardError}
+    <WorkspaceShell activeTab={activeTab} role={role} name={displayName || currentEmail} demo={demoMode} maintenanceCategory={maintenanceCategory} onNavigate={(tab) => {
+      if (isManualReview && tab !== "overview" && tab !== "reviews") return;
+      if ((tab !== "dispatch" || role === "staff") && (tab !== "reviews" || role === "admin" || isManualReview)) setActiveTab(tab);
+    }} onSignOut={() => void signOut()}>
+      {activeTab === "overview" && !isManualReview && <MaintenanceOverview role={role} data={dashboard} loading={dashboardLoading} error={dashboardError}
         categories={categories} locations={locations} busyIds={busyIds} actionErrors={actionErrors} demo={demoMode} submitterRoles={submitterRoles}
         onRetry={() => void loadDashboard(token)} onViewAll={() => setActiveTab(role === "staff" ? "dispatch" : "tracker")}
         onView={(order) => void viewHistory(order)} onAssign={dispatchAction} />}
-      {(activeTab === "tracker" || (activeTab === "dispatch" && role === "staff")) && <div key={activeTab} id="workspace-content" className="tab-content-container">
+      {!isManualReview && (activeTab === "tracker" || (activeTab === "dispatch" && role === "staff")) && <div key={activeTab} id="workspace-content" className="tab-content-container">
         {createdOrderId && <div className="work-order-confirmation" role="status"><CheckCircle2 size={20} aria-hidden="true" /><div><strong>Request sent</strong><p>Request ID: <span className="work-order-confirmation-id">{createdOrderId}</span></p></div><button type="button" className="work-order-dismiss" aria-label="Dismiss request confirmation" onClick={() => setCreatedOrderId(null)}><X size={18} aria-hidden="true" /></button></div>}
         <TicketList orders={workOrders} categories={categories} locations={locations} loading={loadingOrders} error={ordersError} submitterRoles={role === "staff" ? submitterRoles : undefined}
           dispatch={activeTab === "dispatch" && role === "staff"} demo={demoMode} busyIds={busyIds} actionErrors={actionErrors}
           statusUpdates={statusUpdates} onDismissStatus={dismissStatusUpdate} onRevealStatus={revealUpdatedRequest}
           hasMore={hasMoreOrders} onLoadMore={() => void loadWorkOrders(token, true)} onRefresh={() => void loadWorkOrders(token)}
-          onHistory={(order) => void viewHistory(order)} onAction={dispatchAction} onReport={() => setActiveTab("report")} />
+          onHistory={(order) => void viewHistory(order)} onAction={dispatchAction} onReport={role === "reporter" ? () => setActiveTab("report") : undefined} />
       </div>}
-      {activeTab === "reviews" && (role === "admin" || (role === "staff" && maintenanceCategory === "Manual Review")) && <div key="reviews" id="workspace-content" className="tab-content-container"><AdminReviewPanel token={token} categories={categories} locations={locations} /></div>}
+      {((activeTab === "reviews" && (role === "admin" || isManualReview)) || (activeTab === "overview" && isManualReview)) &&
+        <div key="reviews" id="workspace-content" className="tab-content-container">
+          <AdminReviewPanel token={token} categories={categories} locations={locations}
+            onOpenReview={activeTab === "overview" ? () => setActiveTab("reviews") : undefined} />
+        </div>}
 
       {/* SCREEN 2: REPORT NEW ISSUE FORM */}
       {activeTab === "report" && role === "reporter" && (
         <div key="report" id="workspace-content" className="tab-content-container">
-          <div className="panel" style={{ maxWidth: "780px", margin: "0 auto" }}>
+          <div className="panel workspace-report-card">
 
             {metadataError && <div className="request-error" role="alert"><div><p>{metadataError}</p><button className="btn-switch-role" onClick={() => void loadMetadata(token)}>Retry locations and categories</button></div></div>}
             <form onSubmit={handleSubmitOrder} aria-busy={submittingOrder} aria-describedby={submissionError ? "work-order-submission-error" : "work-order-submission-status"}>
               <fieldset className="work-order-fields" disabled={submittingOrder}>
                 <legend className="sr-only">New work order details</legend>
                 <div className="field">
-                  <label htmlFor="report-title">Issue title (required)</label>
+                  <label htmlFor="report-title">Issue title</label>
                   <input
                     id="report-title"
                     type="text"
-                    placeholder="e.g. Water leaking from ceiling AC in Lab 204"
+                    placeholder="e.g. Broken light in Room 204"
                     value={reportTitle}
                     onChange={(e) => { setReportTitle(e.target.value); clearSuggestionFeedback(); }}
                     required
@@ -661,39 +670,23 @@ export default function MaintenanceApp() {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="report-description">Description (required)</label>
+                  <label htmlFor="report-description">Description</label>
                   <textarea
                     id="report-description"
                     ref={descriptionRef}
                     aria-invalid={descriptionError || undefined}
-                    aria-describedby="report-description-help"
-                    placeholder="Describe what is broken, physical signs, or urgent safety hazards..."
+                    aria-describedby={descriptionError ? "report-description-help" : undefined}
+                    placeholder="What happened?"
                     value={reportDesc}
                     onChange={(e) => { setReportDesc(e.target.value); setDescriptionError(false); clearSuggestionFeedback(); }}
                     required
                   />
-                  <p id="report-description-help" className={descriptionError ? "field-inline-error" : "field-help"} role={descriptionError ? "alert" : undefined}>
-                    {descriptionError ? "Please describe the issue first." : "Add a description to get a category suggestion."}
-                  </p>
-                </div>
-
-                {/* AI Auto-Classify Assist */}
-                <div style={{ marginBottom: "18px" }}>
-                  <button
-                    type="button"
-                    className={`secondary-button category-suggest-button${aiResult?.success ? " is-success" : ""}`}
-                    onClick={aiResult?.fallback ? () => categoryRef.current?.focus() : triggerAiClassification}
-                    disabled={aiLoading || submittingOrder || !!metadataError || demoMode}
-                  >
-                    {aiLoading ? <RefreshCw className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : aiResult?.success ? <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> : !aiResult?.fallback && <Sparkles className="w-4 h-4 text-primary" aria-hidden="true" />}
-                    {aiLoading ? "Finding a category…" : aiResult?.success ? `${aiResult.category_name} suggested` : aiResult?.fallback ? "Choose a category manually" : "Suggest a category"}
-                  </button>
-                  <span id="category-suggestion-status" className="sr-only" role="status" aria-live="polite" aria-atomic="true">{aiLoading ? "Finding a category suggestion." : aiResult?.success ? `${aiResult.category_name} suggested. The category dropdown has been updated. Please review the category and location before sending.` : aiResult?.fallback ? "Choose a category manually from the Category dropdown." : ""}</span>
+                  {descriptionError && <p id="report-description-help" className="field-inline-error" role="alert">Enter a description first.</p>}
                 </div>
 
                 <div className="report-select-grid">
                   <div className="field">
-                    <label htmlFor="report-location">Campus location (required)</label>
+                    <label htmlFor="report-location">Location</label>
                     <select
                       id="report-location"
                       value={reportLocation}
@@ -712,7 +705,7 @@ export default function MaintenanceApp() {
                   </div>
 
                   <div className="field">
-                    <label htmlFor="report-category">Category (required)</label>
+                    <label htmlFor="report-category">Category</label>
                     <select
                       id="report-category"
                       ref={categoryRef}
@@ -729,6 +722,16 @@ export default function MaintenanceApp() {
                         </option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      className={`btn-switch-role category-suggest-button${aiResult?.success ? " is-success" : ""}`}
+                      onClick={aiResult?.fallback ? () => categoryRef.current?.focus() : triggerAiClassification}
+                      disabled={aiLoading || submittingOrder || !!metadataError || demoMode}
+                    >
+                      {aiLoading ? <RefreshCw className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : aiResult?.success ? <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> : !aiResult?.fallback && <Sparkles className="w-4 h-4 text-primary" aria-hidden="true" />}
+                      {aiLoading ? "Finding a category…" : aiResult?.success ? `${aiResult.category_name} suggested` : aiResult?.fallback ? "Choose a category manually" : "Suggest a category"}
+                    </button>
+                    <span id="category-suggestion-status" className="sr-only" role="status" aria-live="polite" aria-atomic="true">{aiLoading ? "Finding a category suggestion." : aiResult?.success ? `${aiResult.category_name} suggested. The category dropdown has been updated. Please review the category and location before sending.` : aiResult?.fallback ? "Choose a category manually from the Category dropdown." : ""}</span>
                   </div>
                 </div>
 
@@ -786,7 +789,7 @@ export default function MaintenanceApp() {
           const saved = await performAction(order, "resolve", { resolution_notes: resolveModal.notes.trim() });
           if (saved) setResolveModal({ open: false, workOrderId: "", notes: "", loading: false });
         }} aria-busy={resolveModal.loading}>
-          <div className="field"><label htmlFor="resolution-notes">Repair notes (required)</label><p id="resolution-help" className="field-help">Describe what you repaired and how you checked it.</p><textarea id="resolution-notes" aria-describedby="resolution-help" required disabled={resolveModal.loading} value={resolveModal.notes} onChange={(event) => setResolveModal((previous) => ({ ...previous, notes: event.target.value }))} /></div>
+          <div className="field"><label htmlFor="resolution-notes">Repair notes</label><p id="resolution-help" className="field-help">Describe what you repaired and how you checked it.</p><textarea id="resolution-notes" aria-describedby="resolution-help" required disabled={resolveModal.loading} value={resolveModal.notes} onChange={(event) => setResolveModal((previous) => ({ ...previous, notes: event.target.value }))} /></div>
           {resolveModal.error && <div className="request-action-error" role="alert"><p>{resolveModal.error}</p><button type="button" className="btn-switch-role" disabled={loadingOrders || resolveModal.loading} onClick={() => void loadWorkOrders(token)}>Refresh request status</button>{ordersError && <p>{ordersError}</p>}</div>}
           <p role="status" className="field-help">{resolveModal.loading ? "Saving the repair notes. Please wait…" : ""}</p>
           <div className="dialog-actions"><button type="button" className="btn-switch-role" disabled={resolveModal.loading} onClick={() => setResolveModal({ open: false, workOrderId: "", notes: "", loading: false })}>Cancel</button><button type="submit" className="send-button" disabled={resolveModal.loading || !resolveModal.notes.trim()}>{resolveModal.loading && <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}{resolveModal.loading ? "Saving…" : "Save and resolve"}</button></div>
