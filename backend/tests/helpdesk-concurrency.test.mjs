@@ -26,11 +26,11 @@ test("real PostgreSQL serializes duplicate API calls and a racing manual submiss
     for (const name of ["001_initial_schema", "002_api_policies_and_lifecycle", "003_atomic_create_and_start",
       "006_partner_webhook_events", "008_partner_work_orders", "009_security_hardening", "010_public_reporter_dashboard",
       "011_admin_manual_review", "012_public_manual_location_and_category", "013_manual_review_assignment",
-      "014_public_student_identity_status", "015_helpdesk_integration", "016_helpdesk_direct_creation"]) {
+      "014_public_student_identity_status", "015_helpdesk_integration", "016_helpdesk_direct_creation", "017_helpdesk_category"]) {
       if (name === "009_security_hardening") await pool.query("grant all on all tables in schema public to anon,authenticated,service_role");
       await pool.query(readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), "utf8"));
     }
-    const sql = "select public.create_helpdesk_work_order($1,'Air conditioner in B-204','Does not cool',null) as result";
+    const sql = "select public.create_helpdesk_work_order($1,'Air conditioner in B-204','Does not cool',null,'HVAC') as result";
     async function inServiceTransaction(query, args) {
       const client = await pool.connect();
       try {

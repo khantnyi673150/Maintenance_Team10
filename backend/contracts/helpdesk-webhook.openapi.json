@@ -1,6 +1,6 @@
 {
   "openapi": "3.0.3",
-  "info": { "title": "Helpdesk Maintenance Integration", "version": "0.5", "description": "Team 14 proposal v0.4 plus direct work-order creation. Local validation does not establish production deployment." },
+  "info": { "title": "Helpdesk Maintenance Integration", "version": "0.6", "description": "Team 14 integration with direct work-order creation and optional category. Local validation does not establish production deployment." },
   "components": {
     "securitySchemes": { "helpdeskCredential": { "type": "http", "scheme": "bearer", "description": "Dedicated Helpdesk credential; lookup and creation only." } },
     "schemas": {
@@ -29,7 +29,8 @@
             "ticketRef": { "type": "string", "maxLength": 62, "pattern": "^TKT-[0-9]{1,58}$" },
             "title": { "type": "string", "minLength": 1, "maxLength": 200 },
             "description": { "type": "string", "minLength": 1, "maxLength": 10000 },
-            "location": { "type": "string", "minLength": 1, "maxLength": 300, "description": "Optional. Missing location is marked for staff confirmation." }
+            "location": { "type": "string", "minLength": 1, "maxLength": 300, "description": "Optional. Missing location is marked for staff confirmation." },
+            "category": { "type": "string", "nullable": true, "enum": ["Plumbing", "Electrical", "HVAC", "Safety", null], "description": "Optional. A supplied category routes the new repair to that trade; omitted or null enters Manual Review. A retry does not change the original category." }
           }
         } } } },
         "responses": {
