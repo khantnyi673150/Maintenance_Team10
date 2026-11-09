@@ -11,6 +11,8 @@ export function reviewCategorySuggestion(
   const conflicts = !!byId && typeof suggestion.category_name === "string" && byId.name.toLowerCase() !== suggestion.category_name.toLowerCase();
   const category = conflicts ? undefined : byId ?? byName;
   const applied = !suggestion.fallbackToManual && !!category;
+  const needsManualReview = suggestion.fallbackToManual
+    && /^(AMBIGUOUS_OR_UNMATCHED|AMBIGUOUS_CATEGORIES|INSUFFICIENT_EVIDENCE|LOW_CONFIDENCE):/.test(suggestion.reason ?? "");
   const name = suggestion.detected_building?.name;
   return {
     categoryId: applied ? category!.id : selection.categoryId,
@@ -19,5 +21,6 @@ export function reviewCategorySuggestion(
     locationId: selection.locationId,
     buildingHint: typeof name === "string" && name.trim() ? name.trim().slice(0, 150) : null,
     applied,
+    needsManualReview,
   };
 }

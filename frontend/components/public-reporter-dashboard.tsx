@@ -11,6 +11,7 @@ import { reviewCategorySuggestion } from "@/lib/category-review";
 import { maintenanceCategories } from "@/lib/maintenance-role";
 
 const categoryOptions = maintenanceCategories.map(({ value }) => ({ id: value, name: value }));
+const notSure = { id: "Unknown", name: "Not sure" };
 const suggestionDescriptionLimit = 2000;
 const statuses = {
   STARTED: { label: "Submitted", badge: "OPEN" },
@@ -53,7 +54,7 @@ export default function PublicReporterDashboard() {
   const request = useRef<AbortController | null>(null);
   const submittingRef = useRef(false);
   const suggestionRequest = useRef<symbol | null>(null);
-  const categoryField = useRef<HTMLSelectElement>(null);
+  const locationField = useRef<HTMLInputElement>(null);
 
   const loadTickets = useCallback(async () => {
     request.current?.abort();
@@ -95,6 +96,7 @@ export default function PublicReporterDashboard() {
   const description = form.description.trim();
   const exceedsSuggestionLimit = description.length > suggestionDescriptionLimit;
   const suggestedCategory = suggestion?.status === "ready" ? suggestion.category : undefined;
+  const suggestedName = suggestedCategory === notSure.id ? notSure.name : suggestedCategory;
   const buildingHint = suggestion?.status === "ready" ? suggestion.buildingHint : null;
 
   function updateIssueText(field: "title" | "description", value: string) {
@@ -112,7 +114,11 @@ export default function PublicReporterDashboard() {
       const { data } = await requestCategorySuggestion(apiBase + "/public/categorize", null, { title: form.title, description });
       if (suggestionRequest.current !== requestId) return;
       const result = reviewCategorySuggestion({ categoryId: form.category, locationId: form.location }, data, categoryOptions);
-      setSuggestion({ status: "ready", category: result.categoryName, buildingHint: result.buildingHint });
+      setSuggestion({
+        status: "ready",
+        category: result.needsManualReview ? notSure.id : result.categoryName,
+        buildingHint: result.buildingHint,
+      });
     } catch {
       if (suggestionRequest.current === requestId) setSuggestion({ status: "unavailable" });
     } finally {
@@ -142,7 +148,7 @@ export default function PublicReporterDashboard() {
           ...form,
           student_id: form.student_id.trim() || undefined,
           ticketRef: form.ticketRef.trim() || undefined,
-          category: form.category === "Unknown" ? null : form.category,
+          category: form.category === notSure.id ? null : form.category,
         }),
       });
       const result = await response.json();
@@ -194,37 +200,47 @@ export default function PublicReporterDashboard() {
           <fieldset className="public-fields" disabled={submitting}>
             <legend className="sr-only">Issue details</legend>
             <div className="field"><label htmlFor="public-title">Issue title</label><input id="public-title" required maxLength={200} value={form.title} onChange={(event) => updateIssueText("title", event.target.value)} placeholder="e.g. Broken light in Room 204" /></div>
-            <div className="field"><label htmlFor="public-description">Description</label><textarea id="public-description" aria-describedby="public-privacy" required maxLength={10000} value={form.description} onChange={(event) => updateIssueText("description", event.target.value)} placeholder="What happened?" /><p id="public-privacy" className="field-help">This report is public. Leave out personal information.</p></div>
+            <div className="field">
+              <label htmlFor="public-description">Description</label>
+              <textarea id="public-description" aria-describedby="public-privacy" required maxLength={10000} value={form.description} onChange={(event) => updateIssueText("description", event.target.value)} placeholder="What happened?" />
+              <p id="public-privacy" className="field-help">This report is public. Leave out personal information.</p>
+              <div className="public-category-suggestion">
+                <button type="button" className="btn-switch-role" aria-describedby="public-category-suggestion-status"
+                  onClick={() => void suggestCategory()} disabled={!description || exceedsSuggestionLimit || suggestion?.status === "loading"}>
+                  {suggestion?.status === "loading" ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
+                  {suggestion?.status === "loading" ? "Finding a category…" : "Suggest a category"}
+                </button>
+                {suggestedName && <div className="public-category-result">
+                  <div>
+                    <strong>Suggested category · {suggestedName}</strong>
+                    {suggestedCategory === notSure.id && <p className="field-help">Not sure sends this request to Manual Review.</p>}
+                  </div>
+                  {suggestedCategory && form.category !== suggestedCategory && <button type="button" className="btn-switch-role" onClick={() => {
+                    setForm((current) => ({ ...current, category: suggestedCategory }));
+                    locationField.current?.focus();
+                  }}>Use {suggestedName}</button>}
+                </div>}
+                <p id="public-category-suggestion-status" className={suggestedName ? "sr-only" : "field-help"} role="status">
+                  {suggestedName ? `${suggestedName} suggested.`
+                    : exceedsSuggestionLimit ? "Suggestions are available for descriptions up to 2,000 characters. Choose a category to continue."
+                      : suggestion?.status === "unavailable" ? "Suggestions are unavailable. Choose a category or select Not sure."
+                        : suggestion?.status === "ready" ? "No clear suggestion. Choose a category or select Not sure." : ""}
+                </p>
+              </div>
+            </div>
             <div className="report-select-grid">
               <div className="field">
                 <label htmlFor="public-location">Location</label>
-                <input id="public-location" aria-describedby="report-location-hint" required maxLength={300} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="e.g. C1, Room 204" />
+                <input id="public-location" ref={locationField} aria-describedby="report-location-hint" required maxLength={300} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="e.g. C1, Room 204" />
                 <LocationHint building={buildingHint} />
               </div>
               <div className="field">
                 <label htmlFor="public-category">Category</label>
-                <select id="public-category" ref={categoryField} required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+                <select id="public-category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
                   <option value="">Choose a category</option>
                   {categoryOptions.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-                  <option value="Unknown">Not sure</option>
+                  <option value={notSure.id}>{notSure.name}</option>
                 </select>
-                <div className="public-category-suggestion">
-                  <button type="button" className="btn-switch-role" aria-describedby="public-category-suggestion-status"
-                    onClick={() => void suggestCategory()} disabled={!description || exceedsSuggestionLimit || suggestion?.status === "loading"}>
-                    {suggestion?.status === "loading" ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
-                    {suggestion?.status === "loading" ? "Finding a category…" : "Suggest a category"}
-                  </button>
-                  {suggestedCategory && form.category !== suggestedCategory && <button type="button" className="btn-switch-role" onClick={() => {
-                    setForm((current) => ({ ...current, category: suggestedCategory }));
-                    categoryField.current?.focus();
-                  }}>Use {suggestedCategory}</button>}
-                </div>
-                <p id="public-category-suggestion-status" className="field-help" role="status">
-                  {suggestedCategory && <span className="sr-only">{suggestedCategory} suggested.</span>}
-                  {exceedsSuggestionLimit ? "Suggestions are available for descriptions up to 2,000 characters. Choose a category to continue."
-                    : suggestion?.status === "unavailable" ? "Suggestions are unavailable. Choose a category or select Not sure."
-                      : suggestion?.status === "ready" && !suggestedCategory ? "No clear suggestion. Choose a category or select Not sure." : ""}
-                </p>
               </div>
             </div>
             <div className="field">
