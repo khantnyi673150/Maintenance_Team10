@@ -4,7 +4,10 @@
   "scripts": {
     "test:helpdesk": "node --experimental-strip-types --test tests/helpdesk.test.ts tests/helpdesk-routes.test.mjs tests/public-student-identity-route.test.mjs",
     "test:helpdesk:db": "node --experimental-strip-types --test tests/helpdesk-database.test.mjs",
+    "test:helpdesk:concurrency": "node --experimental-strip-types --test tests/helpdesk-concurrency.test.mjs",
     "worker:helpdesk": "node --env-file-if-exists=.env.local scripts/helpdesk-worker.mjs",
+    "check:helpdesk:live": "node --env-file-if-exists=.env.local scripts/check-helpdesk-live.mjs",
+    "worker:helpdesk:install": "powershell -NoProfile -File scripts/install-helpdesk-worker.ps1",
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",

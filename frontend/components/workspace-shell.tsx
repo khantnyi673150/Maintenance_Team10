@@ -28,7 +28,7 @@ export default function WorkspaceShell({ activeTab, role, name, demo, onNavigate
   if (role === "reporter") navigation.push("report");
   if (role === "staff" && !isManualReview) navigation.push("dispatch");
   if (role === "admin") navigation.push("reviews");
-  if (role === "staff" || role === "admin") navigation.push("identity-test");
+  //if (role === "staff" || role === "admin") navigation.push("identity-test");
   const roleLabel = role === "staff" ? `${maintenanceCategory ?? "Maintenance"} staff` : role === "admin" ? "Administrator" : "Reporter";
   const title = activeTab === "overview" ? (role === "reporter" ? "My overview" : "Maintenance overview")
     : activeTab === "tracker" && role === "reporter" ? "My requests" : destinations[activeTab].label;

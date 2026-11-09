@@ -38,7 +38,7 @@ test("Helpdesk migration, atomic outbox, permissions, lease recovery and real HT
     const migrations = ["001_initial_schema", "002_api_policies_and_lifecycle", "003_atomic_create_and_start",
       "006_partner_webhook_events", "008_partner_work_orders", "009_security_hardening", "010_public_reporter_dashboard",
       "011_admin_manual_review", "012_public_manual_location_and_category", "013_manual_review_assignment",
-      "014_public_student_identity_status", "015_helpdesk_integration"];
+      "014_public_student_identity_status", "015_helpdesk_integration", "016_helpdesk_direct_creation"];
     for (const name of migrations) {
       if (name === "009_security_hardening") await db.exec("grant all on all tables in schema public to anon,authenticated,service_role");
       const sql = readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), "utf8")
@@ -178,6 +178,58 @@ test("Helpdesk migration, atomic outbox, permissions, lease recovery and real HT
       throw new Error("Rollback creation");
     }), /Rollback creation/);
     assert.equal((await db.query("select count(*)::int as n from public.helpdesk_outbox")).rows[0].n, outboxBeforeRollback);
+
+    const directSql = "select public.create_helpdesk_work_order($1,$2,$3,$4) as result";
+    const directArgs = ["TKT-10001", " Air conditioner in room B-204 not working ", " It does not cool and makes a noise. ", null];
+    await assert.rejects(asRole("anon", directSql, directArgs));
+    await assert.rejects(actor(reporter, directSql, directArgs));
+    await assert.rejects(actor(staff, directSql, directArgs));
+    const direct = (await service(directSql, directArgs)).rows[0].result;
+    const directId = direct.work_order.id;
+    assert.equal(direct.duplicate, false);
+    assert.equal(direct.work_order.ticket_ref, "TKT-10001");
+    assert.equal(direct.work_order.status, "OPEN");
+    assert.deepEqual(Object.keys(direct.work_order).sort(), ["id", "status", "ticket_ref", "updated_at"]);
+    const saved = (await db.query("select * from public.work_orders where id=$1", [directId])).rows[0];
+    assert.equal(saved.title, directArgs[1].trim());
+    assert.equal(saved.description, directArgs[2].trim());
+    assert.equal(saved.location_text, "Location to be confirmed");
+    assert.equal(saved.classification_status, "needs_review");
+    assert.equal(saved.category_id, null);
+    assert.equal(saved.student_identity_status, "not_checked");
+    assert.equal(await count(directId), 1);
+    const replay = (await service(directSql, [directArgs[0], "Changed title", "Changed description", "Different location"])).rows[0].result;
+    assert.equal(replay.duplicate, true);
+    assert.deepEqual(replay.work_order, direct.work_order);
+    assert.equal((await db.query("select title from public.work_orders where id=$1", [directId])).rows[0].title, saved.title);
+    assert.equal(await count(directId), 1, "A retry must not queue another reported event");
+    assert.equal((await db.query("select count(*)::int as n from public.status_history where work_order_id=$1", [directId])).rows[0].n, 1);
+    await assert.rejects(actor(staff, "select public.assign_work_order($1,$2)", [directId, staff]), { code: "23514" });
+
+    const manualReplay = (await service(directSql, ["TKT-00012", "Changed", "Changed", null])).rows[0].result;
+    assert.equal(manualReplay.duplicate, true);
+    assert.equal(manualReplay.work_order.id, id);
+    assert.equal(await count(id), 5);
+    const withLocation = (await service(directSql, ["TKT-10002", "Broken light", "Light is out", "Building B, Room 204"])).rows[0].result;
+    assert.equal((await db.query("select location_text from public.work_orders where id=$1", [withLocation.work_order.id])).rows[0].location_text, "Building B, Room 204");
+    await assert.rejects(service(directSql, ["WO-12", "Title", "Description", null]), { code: "22023" });
+    await assert.rejects(service(directSql, ["TKT-10003", " ", "Description", null]), { code: "22023" });
+    await assert.rejects(service(directSql, ["TKT-10003", "Title", "x".repeat(10001), null]), { code: "22023" });
+    await assert.rejects(actor(reporter, "select * from public.helpdesk_creation_requests"));
+    await assert.rejects(service("delete from public.helpdesk_creation_requests where ticket_ref='TKT-10001'"));
+
+    await db.query("update public.work_orders set archived_at=now() where id=$1", [directId]);
+    const afterArchive = (await service(directSql, directArgs)).rows[0].result;
+    assert.equal(afterArchive.duplicate, true);
+    assert.equal(afterArchive.work_order.id, directId, "A retry after archiving cannot make a second work order");
+    const beforeAtomicFailure = (await db.query("select count(*)::int as n from public.helpdesk_outbox")).rows[0].n;
+    await assert.rejects(db.transaction(async (tx) => {
+      await tx.query(directSql, ["TKT-10005", "Test", "Test repair", null]);
+      throw new Error("Rollback direct creation");
+    }), /Rollback direct creation/);
+    assert.equal((await db.query("select count(*)::int as n from public.work_orders where ticket_ref='TKT-10005'")).rows[0].n, 0);
+    assert.equal((await db.query("select count(*)::int as n from public.helpdesk_creation_requests where ticket_ref='TKT-10005'")).rows[0].n, 0);
+    assert.equal((await db.query("select count(*)::int as n from public.helpdesk_outbox")).rows[0].n, beforeAtomicFailure);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(() => resolve()));

@@ -4,9 +4,9 @@ The code supports Team 14 proposal v0.4. Deployment and a joint test with Team 1
 
 ## Setup
 
-1. Apply `backend/supabase/migrations/015_helpdesk_integration.sql` after migration 014.
+1. Apply migrations `015_helpdesk_integration.sql` and then `016_helpdesk_direct_creation.sql` after migration 014. Migration 016 is required for the direct-creation API.
 2. Set private backend environment variables from `backend/.env.example`:
-   - `HELPDESK_API_KEY`: a new, random read-only credential shared with Helpdesk.
+   - `HELPDESK_API_KEY`: the dedicated lookup and direct-creation credential shared with Helpdesk.
    - `HELPDESK_WEBHOOK_URL`: Team 14's full receiver URL.
    - `HELPDESK_WEBHOOK_SECRET`: the private HMAC signing secret agreed with Team 14.
    - `HELPDESK_WORKER_SECRET`: a separate worker credential, kept within Team 10.
@@ -14,6 +14,22 @@ The code supports Team 14 proposal v0.4. Deployment and a joint test with Team 1
 4. Run `npm run worker:helpdesk --prefix backend` on an always-on host. Set `HELPDESK_WORKER_URL` to the deployed backend's `/api/integrations/helpdesk/deliver` endpoint and supply the same worker secret on that host. For a single pass, append `-- --once`.
 
 Alternatively, configure your scheduler to call `GET /api/integrations/helpdesk/deliver` every minute with `Authorization: Bearer <HELPDESK_WORKER_SECRET>`. No scheduler is installed automatically. The worker must run for pending deliveries to leave the queue. Do not expose worker credentials in a browser or reuse another partner's key.
+
+On Windows, `npm run worker:helpdesk:install --prefix backend` installs the `Maintenance-Team10-Helpdesk-Delivery` scheduled task. It runs a hidden single-pass worker every minute while the installing user is signed in and the laptop is awake. Logs are in the ignored `backend/.helpdesk-worker.log`. Set `HELPDESK_DELIVERY_ENABLED=false` in `backend/.env.local` to keep delivery paused; change it to `true` only when the backend and Helpdesk receiver are ready. This local task does not run on Vercel or on another laptop. For a laptop-independent deployment, use an always-on host or an external scheduler.
+
+`npm run check:helpdesk:live --prefix backend` checks backend readiness, receiver POST availability, migration 015 and the existing `TKT-00012` lookup without creating a repair or changing a status. It sends only an empty unsigned probe to the receiver; a 400/401 proves the handler is reachable, not that the shared signing secret matches.
+
+## Direct creation and manual backup
+
+`POST /api/v1/work-orders` uses the same Bearer credential as lookup. Send `X-Correlation-Id` and `Content-Type: application/json`. Required fields are `ticketRef`, `title` and `description`. `location` is optional. No category or personal information is required.
+
+Example request: `{ "ticketRef": "TKT-00012", "title": "Air conditioner in room B-204 not working", "description": "It does not cool and makes a noise." }`.
+
+A new request returns HTTP 201 with `{ "data": { "id": "<uuid>", "status": "reported", "ticketRef": "TKT-00012", "updatedAt": "<ISO timestamp>" } }`. A retry with the same reference returns HTTP 200 and the original work order with its current status. Retries never overwrite repair details or queue another creation event. A matching manual submission also counts as an existing work order. A creation receipt preserves the original UUID even if the work order is later archived.
+
+Missing or invalid fields return HTTP 400 with `{ "error": { "code": "...", "message": "..." } }`. Unauthorised calls return 401. A temporary database error or timeout returns 503; retry using the same reference. Responses echo the correlation ID and disable caching.
+
+These repairs enter the existing staff review queue. Location is stored when provided; otherwise it is marked `Location to be confirmed`. The original title and description remain available for staff review. Category and location are not guessed from free text. The report screen and UUID linking remain available as a manual backup.
 
 ## Lookup
 
@@ -46,6 +62,7 @@ Use the database owner for this recovery; the API service has no direct outbox w
 
 - `npm run test:helpdesk --prefix backend`: actual API handlers, credentials, reference validation, signature formula, real local HTTP receiver and timeout checks; includes Student Identity creation regression tests.
 - `npm run test:helpdesk:db --prefix backend`: isolated PostgreSQL migration, permissions, atomic lifecycle/outbox rollback, exact event shape, real HTTP 503/recovery, lease fencing and retry exhaustion. Requires `PGLITE_PACKAGE_ROOT` pointing to a separate temporary installation of `@electric-sql/pglite@0.3.15`; it does not use the hosted database.
+- `npm run test:helpdesk:concurrency --prefix backend`: duplicate API calls, API/manual-form races and rollback recovery on a real disposable PostgreSQL server. Requires an empty loopback database named `helpdesk_test` through `HELPDESK_TEST_DATABASE_URL`, plus `PG_PACKAGE_ROOT` pointing to a temporary installation of `pg`. It refuses a hosted database or a nonempty test schema.
 - From the repository root, run `postman simulation run postman/simulations/helpdesk.sim.yaml --port 4514 --no-history --output ndjson`, then `node --experimental-strip-types backend/scripts/test-helpdesk-simulation.mjs`. The stand-in comes from the supplied draft and exercises acceptance, 5xx and timeout; it does not establish live compatibility.
 
 The versioned webhook response cases are recorded in `backend/contracts/helpdesk-webhook.openapi.json`. Run Team 14's eight joint tests against both test deployments before production use. No real Helpdesk secret or test URL is bundled.

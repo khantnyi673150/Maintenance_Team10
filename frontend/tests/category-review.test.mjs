@@ -25,3 +25,16 @@ test("fallback and unavailable categories preserve the user's manual choice", ()
     assert.equal(result.locationId, selection.locationId);
   }
 });
+
+test("offers manual review for uncertain matches without treating timeouts or blocked input as suggestions", () => {
+  const selection = { categoryId: "real-plumbing", locationId: "my-room" };
+  for (const reason of ["AMBIGUOUS_OR_UNMATCHED", "AMBIGUOUS_CATEGORIES", "INSUFFICIENT_EVIDENCE", "LOW_CONFIDENCE"]) {
+    const result = reviewCategorySuggestion(selection, { fallbackToManual: true, reason: `${reason}: Test` }, categories);
+    assert.equal(result.needsManualReview, true);
+    assert.equal(result.categoryId, selection.categoryId);
+  }
+  for (const reason of ["NFR_TIMEOUT", "PROMPT_INJECTION_DEFENSE"]) {
+    const result = reviewCategorySuggestion(selection, { fallbackToManual: true, reason: `${reason}: Test` }, categories);
+    assert.equal(result.needsManualReview, false);
+  }
+});
