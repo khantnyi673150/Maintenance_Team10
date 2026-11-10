@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
-import { maintenanceRole } from "@/lib/maintenance-role";
-import type { MaintenanceRole, WorkspaceSelection } from "@/lib/maintenance-role";
+import StaffAccounts from "@/components/staff-accounts";
+import { assignedStaffCategory, maintenanceRole } from "@/lib/maintenance-role";
+import type { MaintenanceRole, MaintenanceCategory } from "@/lib/maintenance-role";
 import { canUseLocalDemo, demoLocations, demoCategories, sampleWorkOrders } from "@/lib/local-demo";
 import { useRouter } from "next/navigation";
 import { requestCategorySuggestion } from "@/lib/category-request";
@@ -52,7 +53,7 @@ export default function MaintenanceApp() {
   const [demoMode, setDemoMode] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [role, setRole] = useState<MaintenanceRole>("reporter");
-  const [maintenanceCategory, setMaintenanceCategory] = useState<WorkspaceSelection | null>(null);
+  const [maintenanceCategory, setMaintenanceCategory] = useState<MaintenanceCategory | null>(null);
   const [token, setToken] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [currentEmail, setCurrentEmail] = useState("");
@@ -64,6 +65,7 @@ export default function MaintenanceApp() {
   const dashboardRequestId = useRef(0);
   const sessionUserId = useRef<string | null>(null);
   const sessionRole = useRef<MaintenanceRole | null>(null);
+  const sessionWorkspace = useRef<MaintenanceCategory | null>(null);
   const activeAccessToken = useRef("");
 
   // Data collections
@@ -178,14 +180,6 @@ export default function MaintenanceApp() {
   }, []);
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
-  const isManualReview = role === "staff" && maintenanceCategory === "Manual Review";
-  const authHeaders = (jwt: string): Record<string, string> => ({
-    Authorization: `Bearer ${jwt}`,
-    ...(role === "staff" && maintenanceCategory && maintenanceCategory !== "Manual Review"
-      ? { "X-Maintenance-Category": maintenanceCategory }
-      : {}),
-  });
-
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [activeTab]);
 
   async function signOut() {
@@ -224,12 +218,19 @@ export default function MaintenanceApp() {
     const applySession = (session: import("@supabase/supabase-js").Session | null) => {
       if (!active) return;
       const assignedRole = maintenanceRole(session?.user);
-      const selectedCategory = typeof sessionStorage !== "undefined"
-        ? sessionStorage.getItem("maintenance-category") as WorkspaceSelection | null
+      const selectedCategory = session && assignedRole === "staff"
+        ? assignedStaffCategory(session.user)
         : null;
+      if (session && assignedRole === "staff" && !selectedCategory) {
+        activeAccessToken.current = "";
+        setToken("");
+        setSessionReady(false);
+        router.replace("/login");
+        return;
+      }
       activeAccessToken.current = session && assignedRole ? session.access_token : "";
       const nextUserId = session?.user.id ?? null;
-      if (sessionUserId.current !== nextUserId || sessionRole.current !== assignedRole) {
+      if (sessionUserId.current !== nextUserId || sessionRole.current !== assignedRole || sessionWorkspace.current !== selectedCategory) {
         setWorkOrders([]);
         setCategories([]);
         setLocations([]);
@@ -268,9 +269,10 @@ export default function MaintenanceApp() {
         setDashboardError(null);
         setDashboardLoading(true);
         dashboardRequestId.current++;
-        setActiveTab("overview");
+        setActiveTab(assignedRole === "admin" ? "reviews" : "overview");
         sessionUserId.current = nextUserId;
         sessionRole.current = assignedRole;
+        sessionWorkspace.current = selectedCategory;
       }
       if (session && assignedRole) {
         setToken(session.access_token);
@@ -347,7 +349,7 @@ export default function MaintenanceApp() {
     const timer = setTimeout(() => controller.abort(), 20000);
     try {
       const res = await fetch(`${apiBase}/work-orders?limit=100&offset=${offset}`, {
-        headers: authHeaders(jwt),
+        headers: { Authorization: `Bearer ${jwt}` },
         signal: controller.signal,
       });
       if (!res.ok) throw new Error("Unable to load requests");
@@ -373,7 +375,7 @@ export default function MaintenanceApp() {
     setDashboardLoading(true);
     setDashboardError(null);
     try {
-      const response = await fetch(`${apiBase}/dashboard`, { headers: authHeaders(jwt), signal: controller.signal });
+      const response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${jwt}` }, signal: controller.signal });
       if (!response.ok) throw new Error("Dashboard unavailable");
       const json = await response.json();
       if (!json.data?.summary || !Array.isArray(json.data.orders) || !Array.isArray(json.data.updates)) throw new Error("Invalid dashboard");
@@ -386,7 +388,7 @@ export default function MaintenanceApp() {
     }
   }, [apiBase, role, maintenanceCategory]);
 
-  useEffect(() => { if (token && activeTab === "overview" && !isManualReview) void loadDashboard(token); }, [token, activeTab, isManualReview, loadDashboard]);
+  useEffect(() => { if (token && activeTab === "overview") void loadDashboard(token); }, [token, activeTab, loadDashboard]);
 
   const submitterIds = role === "staff" ? Array.from(new Set([...workOrders, ...(dashboard?.orders ?? [])].map((order) => order.id))).join(",") : "";
   useEffect(() => {
@@ -409,10 +411,10 @@ export default function MaintenanceApp() {
   }, [token, role, submitterIds, apiBase]);
 
   useEffect(() => {
-    if (token && !isManualReview) {
+    if (token && role !== "admin") {
       loadWorkOrders(token);
     }
-  }, [token, isManualReview, loadWorkOrders]);
+  }, [token, role, loadWorkOrders]);
 
   useEffect(() => { if (token) void loadMetadata(token); }, [token, loadMetadata]);
 
@@ -588,7 +590,7 @@ export default function MaintenanceApp() {
   }
 
   function dispatchAction(order: WorkOrder) {
-    if (isManualReview) return;
+    if (role !== "staff") return;
     if (order.status === "IN_PROGRESS") { setResolveModal({ open: true, workOrderId: order.id, notes: "", loading: false }); return; }
     const action = { OPEN: "assign", ASSIGNED: "in-progress", RESOLVED: "close" }[order.status as "OPEN" | "ASSIGNED" | "RESOLVED"];
     if (action) void performAction(order, action, order.status === "OPEN" ? { staff_id: currentUserId } : undefined);
@@ -632,14 +634,13 @@ export default function MaintenanceApp() {
 
   return (
     <WorkspaceShell activeTab={activeTab} role={role} name={displayName || currentEmail} demo={demoMode} maintenanceCategory={maintenanceCategory} onNavigate={(tab) => {
-      if (isManualReview && tab !== "overview" && tab !== "reviews") return;
-      if ((tab !== "dispatch" || role === "staff") && (tab !== "reviews" || role === "admin" || isManualReview)) setActiveTab(tab);
+      if ((tab !== "dispatch" || role === "staff") && ((tab !== "reviews" && tab !== "staff-accounts") || role === "admin")) setActiveTab(tab);
     }} onSignOut={() => void signOut()}>
-      {activeTab === "overview" && !isManualReview && <MaintenanceOverview role={role} data={dashboard} loading={dashboardLoading} error={dashboardError}
+      {activeTab === "overview" && <MaintenanceOverview role={role} data={dashboard} loading={dashboardLoading} error={dashboardError}
         categories={categories} locations={locations} busyIds={busyIds} actionErrors={actionErrors} demo={demoMode} submitterRoles={submitterRoles}
         onRetry={() => void loadDashboard(token)} onViewAll={() => setActiveTab(role === "staff" ? "dispatch" : "tracker")}
         onView={(order) => void viewHistory(order)} onAssign={dispatchAction} />}
-      {!isManualReview && (activeTab === "tracker" || (activeTab === "dispatch" && role === "staff")) && <div key={activeTab} id="workspace-content" className="tab-content-container">
+      {(activeTab === "tracker" || (activeTab === "dispatch" && role === "staff")) && <div key={activeTab} id="workspace-content" className="tab-content-container">
         {createdOrderId && <div className="work-order-confirmation" role="status"><CheckCircle2 size={20} aria-hidden="true" /><div><strong>Request sent</strong><p>Request ID: <span className="work-order-confirmation-id">{createdOrderId}</span></p></div><button type="button" className="work-order-dismiss" aria-label="Dismiss request confirmation" onClick={() => setCreatedOrderId(null)}><X size={18} aria-hidden="true" /></button></div>}
         <TicketList orders={workOrders} categories={categories} locations={locations} loading={loadingOrders} error={ordersError} submitterRoles={role === "staff" ? submitterRoles : undefined}
           dispatch={activeTab === "dispatch" && role === "staff"} demo={demoMode} busyIds={busyIds} actionErrors={actionErrors}
@@ -647,11 +648,11 @@ export default function MaintenanceApp() {
           hasMore={hasMoreOrders} onLoadMore={() => void loadWorkOrders(token, true)} onRefresh={() => void loadWorkOrders(token)}
           onHistory={(order) => void viewHistory(order)} onAction={dispatchAction} onReport={role === "reporter" ? () => setActiveTab("report") : undefined} />
       </div>}
-      {((activeTab === "reviews" && (role === "admin" || isManualReview)) || (activeTab === "overview" && isManualReview)) &&
+      {activeTab === "reviews" && role === "admin" &&
         <div key="reviews" id="workspace-content" className="tab-content-container">
-          <AdminReviewPanel token={token} categories={categories} locations={locations}
-            onOpenReview={activeTab === "overview" ? () => setActiveTab("reviews") : undefined} />
+          <AdminReviewPanel token={token} categories={categories} locations={locations} />
         </div>}
+      {activeTab === "staff-accounts" && role === "admin" && <StaffAccounts apiBase={apiBase} token={token} />}
       {activeTab === "identity-test" && (role === "staff" || role === "admin") &&
         <StudentIdentityTest apiBase={apiBase} accessToken={token} />}
 

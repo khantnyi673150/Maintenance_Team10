@@ -28,6 +28,9 @@ process.env.STUDENT_IDENTITY_API_KEY = "route-test-identity-key";
 process.env.FRONTEND_ORIGINS = "http://localhost:3001";
 const originalFetch = globalThis.fetch;
 const events = new Map();
+const staffId = "00000000-0000-4000-8000-000000000002";
+const staffProfile = { id: staffId, email: "technician@example.invalid", app_metadata: { role: "staff" }, user_metadata: {} };
+const adminCalls = [];
 const databaseCalls = [];
 const identityCalls = [];
 let dashboardCountFailure = false;
@@ -42,11 +45,35 @@ globalThis.fetch = async (input, init) => {
   assert.equal(url.hostname, "supabase.invalid", "Tests must never contact a live service");
   const token = request.headers.get("authorization")?.replace("Bearer ", "");
   if (url.pathname === "/auth/v1/user") {
-    if (!["reporter-token", "staff-token", "admin-token", "editable-token"].includes(token)) return Response.json({ message: "invalid token" }, { status: 401 });
+    if (!["reporter-token", "staff-token", "admin-token", "unassigned-token", "editable-token"].includes(token)) return Response.json({ message: "invalid token" }, { status: 401 });
     return Response.json({ id: "00000000-0000-4000-8000-000000000001", email: "fixture@example.invalid",
-      app_metadata: token === "editable-token" ? {} : { role: token === "staff-token" ? "staff" : token === "admin-token" ? "admin" : "reporter" },
+      app_metadata: {
+        "staff-token": { role: "staff", maintenance_category: "Plumbing" },
+        "unassigned-token": { role: "staff" },
+        "admin-token": { role: "admin" },
+        "reporter-token": { role: "reporter" },
+      }[token] ?? {},
       user_metadata: { role: "staff" },
     });
+  }
+  if (url.pathname === "/auth/v1/admin/users") {
+    assert.equal(token, "route-test-service-key");
+    adminCalls.push(request.method);
+    if (request.method === "GET") {
+      return Response.json({ users: [staffProfile, { ...staffProfile, app_metadata: { role: "admin" } }] });
+    }
+    const body = await request.json();
+    assert.deepEqual(body, { email: "new@example.invalid", email_confirm: true,
+      app_metadata: { role: "staff", maintenance_category: "HVAC" }, user_metadata: { full_name: "New Staff" } });
+    return Response.json({ id: staffId, ...body }, { status: 201 });
+  }
+  if (url.pathname === `/auth/v1/admin/users/${staffId}`) {
+    assert.equal(token, "route-test-service-key");
+    adminCalls.push(request.method);
+    if (request.method === "GET") return Response.json(staffProfile);
+    const body = await request.json();
+    assert.deepEqual(body, { app_metadata: { maintenance_category: "Electrical" } });
+    return Response.json({ ...staffProfile, app_metadata: { ...staffProfile.app_metadata, ...body.app_metadata } });
   }
   if (url.pathname.startsWith("/auth/v1/admin/users/")) {
     assert.equal(token, "route-test-service-key");
@@ -59,7 +86,7 @@ globalThis.fetch = async (input, init) => {
   if (request.method === "HEAD") return new Response(null, { status: dashboardCountFailure ? 503 : 200, headers: { "Content-Range": "*/7" } });
   if (url.pathname === "/rest/v1/categories") return Response.json([{ id: "00000000-0000-4000-8000-000000000020", sla_hours: 8 }]);
   if (url.pathname === "/rest/v1/rpc/classify_work_order") {
-    assert.equal(token, "staff-token");
+    assert.equal(token, "admin-token");
     const { p_work_order_id, p_category_id } = await request.json();
     assert.equal(p_work_order_id, "00000000-0000-4000-8000-000000000010");
     assert.equal(p_category_id, "22222222-2222-2222-2222-222222222222");
@@ -91,6 +118,7 @@ const categorize = await load("app/api/ai/categorize/route.ts");
 const publicCategorize = await load("app/api/public/categorize/route.ts");
 const dashboard = await load("app/api/dashboard/route.ts");
 const reviews = await load("app/api/admin/reviews/route.ts");
+const staffAccounts = await load("app/api/admin/staff/route.ts");
 const submitters = await load("app/api/work-orders/submitters/route.ts");
 const order = await load("app/api/work-orders/[id]/route.ts");
 const partner = await load("app/api/partner/work-orders/route.ts");
@@ -166,17 +194,47 @@ describe("Actual route security boundaries", () => {
   });
   it("accepts the existing seeded Plumbing UUID when assigning a category", async () => {
     const categoryId = "22222222-2222-2222-2222-222222222222";
-    const patch = (id) => new Request("http://localhost/api/admin/reviews?id=00000000-0000-4000-8000-000000000010", {
+    const patch = (id, token = "admin-token") => new Request("http://localhost/api/admin/reviews?id=00000000-0000-4000-8000-000000000010", {
       method: "PATCH",
-      headers: { Authorization: "Bearer staff-token", "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ category_id: id }),
     });
     const before = databaseCalls.length;
+    assert.equal((await reviews.PATCH(patch(categoryId, "staff-token"))).status, 403);
+    assert.equal((await reviews.GET(request("GET", "staff-token"))).status, 403);
     assert.equal((await reviews.PATCH(patch("not-a-uuid"))).status, 400);
     assert.equal(databaseCalls.length, before);
     const response = await reviews.PATCH(patch(categoryId));
     assert.equal(response.status, 200);
     assert.equal((await response.json()).data.category_id, categoryId);
+  });
+  it("lets only admins create and categorize staff accounts", async () => {
+    const newAccount = JSON.stringify({ email: "New@example.invalid", name: "New Staff", category: "HVAC" });
+    assert.equal((await staffAccounts.GET(request("GET", "staff-token"))).status, 403);
+    assert.equal((await staffAccounts.POST(request("POST", "reporter-token", newAccount))).status, 403);
+    assert.equal((await staffAccounts.PATCH(request("PATCH", "staff-token", "{}"))).status, 403);
+    assert.deepEqual(adminCalls, []);
+    const listed = await staffAccounts.GET(request("GET", "admin-token"));
+    assert.equal(listed.status, 200);
+    assert.deepEqual((await listed.json()).data, [{ id: staffId, email: staffProfile.email, name: null, category: null }]);
+    const created = await staffAccounts.POST(request("POST", "admin-token", newAccount));
+    assert.equal(created.status, 201);
+    assert.equal((await created.json()).data.category, "HVAC");
+    const body = JSON.stringify({ id: staffId, category: "Electrical" });
+    const updated = await staffAccounts.PATCH(request("PATCH", "admin-token", body));
+    assert.equal(updated.status, 200);
+    assert.equal((await updated.json()).data.category, "Electrical");
+    const reporterUpdate = JSON.stringify({ id: "00000000-0000-4000-8000-000000000001", category: "HVAC" });
+    assert.equal((await staffAccounts.PATCH(request("PATCH", "admin-token", reporterUpdate))).status, 404);
+  });
+  it("rejects an unassigned account or a staff request for a different trade", async () => {
+    const before = databaseCalls.length;
+    const forged = new Request("http://localhost/api/work-orders", {
+      headers: { Authorization: "Bearer staff-token", "X-Maintenance-Category": "Electrical" },
+    });
+    assert.equal((await workOrders.GET(forged)).status, 403);
+    assert.equal((await workOrders.GET(request("GET", "unassigned-token"))).status, 403);
+    assert.equal(databaseCalls.length, before);
   });
   it("keeps improved category decisions authenticated, validated and hint-only", async () => {
     const body = JSON.stringify({ description: "The AC isn't cooling at E1." });
@@ -211,10 +269,15 @@ describe("Actual route security boundaries", () => {
     const resolved = calls.find((call) => call.query.get("to_status") === "eq.RESOLVED");
     assert.equal(resolved.query.get("from_status"), "eq.IN_PROGRESS", "Edits to resolved tickets must not inflate the weekly count");
   });
-  it("keeps staff dashboard campus-wide and never disguises failed counts as zero", async () => {
+  it("scopes the staff dashboard to the assigned trade and never disguises failed counts as zero", async () => {
     const before = databaseCalls.length;
     assert.equal((await dashboard.GET(request("GET", "staff-token"))).status, 200);
-    assert.ok(databaseCalls.slice(before).every((call) => !call.query.has("reporter_id") && !call.query.has("work_orders.reporter_id")));
+    const calls = databaseCalls.slice(before);
+    assert.ok(calls.some((call) => call.path.endsWith("/categories") && call.query.get("name") === "eq.Plumbing"));
+    for (const call of calls.filter((call) => !call.path.endsWith("/categories"))) {
+      const scope = call.path.endsWith("status_history") ? "work_orders.category_id" : "category_id";
+      assert.equal(call.query.get(scope), "eq.00000000-0000-4000-8000-000000000020");
+    }
     dashboardCountFailure = true;
     try { assert.equal((await dashboard.GET(request("GET", "staff-token"))).status, 503); }
     finally { dashboardCountFailure = false; }

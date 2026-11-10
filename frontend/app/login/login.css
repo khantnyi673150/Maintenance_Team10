@@ -7,7 +7,7 @@
 .login-fields { min-width: 0; padding: 0; margin: 0; border: 0; }
 .login-field { display: grid; gap: 7px; margin-bottom: 16px; }
 .login-field label { color: var(--foreground); font-size: 14px; font-weight: 600; }
-.login-field input, .login-field select { min-height: 44px; font-size: 16px; }
+.login-field input { min-height: 44px; font-size: 16px; }
 .login-input-wrap, .recovery-password-wrap { position: relative; }
 .login-input-wrap > svg { position: absolute; left: 12px; top: 13px; pointer-events: none; color: var(--text-secondary); }
 .login-input-wrap input { padding-left: 40px; }

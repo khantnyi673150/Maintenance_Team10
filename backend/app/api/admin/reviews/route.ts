@@ -6,7 +6,7 @@ import { uuidSchema } from "@/lib/work-order-schemas";
 const reviewSchema = z.object({ category_id: uuidSchema });
 
 export async function GET(request: Request) {
-  const auth = await requireAuth(request, ["staff", "admin"]);
+  const auth = await requireAuth(request, ["admin"]);
   if (auth.response) return auth.response;
   const started = performance.now();
   const { data, error } = await auth.context!.supabase
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireAuth(request, ["staff", "admin"]);
+  const auth = await requireAuth(request, ["admin"]);
   if (auth.response) return auth.response;
   const id = uuidSchema.safeParse(new URL(request.url).searchParams.get("id"));
   if (!id.success) return errorResponse(400, "INVALID_ID", "A valid work-order id is required");

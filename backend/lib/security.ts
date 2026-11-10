@@ -1,26 +1,13 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export type AppRole = "reporter" | "staff" | "admin";
-export type MaintenanceCategory = "Plumbing" | "Electrical" | "HVAC" | "Safety";
+export const maintenanceCategoryNames = ["Plumbing", "Electrical", "HVAC", "Safety"] as const;
+export type MaintenanceCategory = (typeof maintenanceCategoryNames)[number];
 
 export function resolveTrustedCategory(user: { app_metadata?: Record<string, unknown> }): MaintenanceCategory | null {
-  if (user.app_metadata?.maintenance_all_categories === true) return null;
-  if (Array.isArray(user.app_metadata?.maintenance_categories)) {
-    return null;
-  }
-
+  if (resolveTrustedRole(user) !== "staff") return null;
   const value = user.app_metadata?.maintenance_category ?? user.app_metadata?.category;
-  return value === "Plumbing" || value === "Electrical" || value === "HVAC" || value === "Safety" ? value : null;
-}
-
-export function isTrustedCategorySelection(user: { app_metadata?: Record<string, unknown> }, value: string): value is MaintenanceCategory {
-  if (value !== "Plumbing" && value !== "Electrical" && value !== "HVAC" && value !== "Safety") return false;
-  const metadata = user.app_metadata;
-  if (metadata?.role === "staff") return true;
-  return metadata?.maintenance_all_categories === true
-    || (Array.isArray(metadata?.maintenance_categories) && metadata.maintenance_categories.includes(value))
-    || metadata?.maintenance_category === value
-    || metadata?.category === value;
+  return maintenanceCategoryNames.find((category) => category === value) ?? null;
 }
 
 export function resolveTrustedRole(user: { app_metadata?: Record<string, unknown> }): AppRole | null {
