@@ -2,6 +2,24 @@
 
 Welcome to the **Campus Facility Maintenance Platform (Team 10)** repository. This document serves as the single source of truth and instruction manual for OpenAI Codex, Antigravity, Claude, Cursor, and any other autonomous AI coding agents working on or analyzing this codebase.
 
+## Start here when taking over
+
+- Run `git status --short --branch` and check the current branch and staged files before editing. Keep unrelated changes out of commits. Verify branch, merge, deployment, and database migration status separately.
+- [README.md](README.md) explains local setup. [PRD_Maintenance.md](PRD_Maintenance.md) defines the requirements. [architecture.md](architecture.md) describes the system boundaries. Use the route handlers and migrations on the checked-out branch to verify behavior.
+- `frontend/app/page.tsx` selects the public reporter or signed-in workspace. `frontend/components/public-reporter-dashboard.tsx` owns the public form and tracker. The backend lives in `backend/app/api` and uses Supabase Auth, PostgreSQL, and the SQL migrations in `backend/supabase/migrations`.
+- For local testing, use the backend on port 3000 and the frontend on port 3001. Confirm that `NEXT_PUBLIC_API_BASE_URL` points to `http://localhost:3000/api` and that the backend allows the frontend's origin. Check `/api/health` before troubleshooting the UI. Keep all environment credentials private.
+
+### Feature handoff
+
+- **Public report confirmation** (`codex/report-confirmation-placement`). The success card sits below **Send request** and receives focus after a confirmed submission. Keep the card compact with **Request sent**, a short acknowledgement, and **Track request**. Tracking uses the returned reference internally to open the matching ticket in **Request details**. Show the reference and student ID verification result there. Keep the submitted student ID and raw claims out of the confirmation, tracker, logs, and database. If the matching ticket is missing from the current tracker results, show the refresh message.
+- **Admin-managed staff access** (`codex/staff-account-sign-in`, commit `40e6441`). This is separate work. Check whether the commit is on your branch before assuming this flow exists. It removes category selection from sign-in, gives administrators **Manual review** and **Staff accounts**, and scopes staff ticket access to the category assigned in trusted `app_metadata`. Administrators use **Edit** on an existing staff account to reveal **Save category** and **Cancel**. First-admin setup requires a verified Supabase user with `app_metadata.role = admin`. Verify migration `018_admin_staff_access.sql` is applied before releasing the matching API. New staff set their password through **Forgot password**.
+- **Integration boundaries.** Team 12 creation and status webhook code is under `backend/app/api/partner` and `backend/lib/team12-integration.ts`. Helpdesk and Student Identity are separate integrations under `backend/app/api/integrations`. Check their contracts and migration prerequisites before changing shared ticket creation or lifecycle code.
+
+### Verify changes before handoff
+
+- For public UI changes, run `npm run typecheck --prefix frontend` and `npm run test:ux --prefix frontend`. Check phone and desktop widths. With a mocked submission, verify the confirmation follows the submit button, omits the reference, and opens the correct details with **Track request**.
+- For API and authorization changes, run the backend type check and `npm run test:security --prefix backend`. Test RLS and migration changes in an isolated database first. Record which checks ran and any environment setup still needed.
+
 ---
 
 ## 1. Project Overview & Mission

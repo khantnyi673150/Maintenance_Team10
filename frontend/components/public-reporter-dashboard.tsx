@@ -46,7 +46,6 @@ export default function PublicReporterDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedReference, setSubmittedReference] = useState<string | null>(null);
-  const [submittedIdentity, setSubmittedIdentity] = useState<{ status: "identified" | "not_identified"; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [suggestion, setSuggestion] = useState<PublicSuggestion | null>(null);
@@ -55,6 +54,11 @@ export default function PublicReporterDashboard() {
   const submittingRef = useRef(false);
   const suggestionRequest = useRef<symbol | null>(null);
   const locationField = useRef<HTMLInputElement>(null);
+  const confirmation = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (submittedReference) confirmation.current?.focus();
+  }, [submittedReference]);
 
   const loadTickets = useCallback(async () => {
     request.current?.abort();
@@ -127,8 +131,10 @@ export default function PublicReporterDashboard() {
   }
 
   function trackSubmission(reference: string) {
-    setSearch(reference);
+    setSearch("");
     setFilter("ALL");
+    setLoading(true);
+    setDetailReference(reference);
     setView("track");
   }
 
@@ -139,7 +145,6 @@ export default function PublicReporterDashboard() {
     setSubmitting(true);
     setSubmitError(null);
     setSubmittedReference(null);
-    setSubmittedIdentity(null);
     try {
       const response = await fetch(apiBase + "/public/work-orders", {
         method: "POST",
@@ -157,12 +162,6 @@ export default function PublicReporterDashboard() {
         throw new Error("Couldn’t confirm the request. Check the tracker before sending again.");
       }
       setSubmittedReference(result.data.reference_number);
-      setSubmittedIdentity({
-        status: result.student_identity?.status === "identified" ? "identified" : "not_identified",
-        message: typeof result.student_identity?.message === "string"
-          ? result.student_identity.message
-          : "Student identity was not confirmed; the report was still saved.",
-      });
       suggestionRequest.current = null;
       setSuggestion(null);
       setForm(emptyForm);
@@ -182,20 +181,12 @@ export default function PublicReporterDashboard() {
         <p>Report a campus issue or check a repair.</p>
       </div>
       <nav className="public-navigation" aria-label="Public maintenance">
-        <button type="button" aria-current={view === "report" ? "page" : undefined} onClick={() => setView("report")}><Plus size={18} aria-hidden="true" />Report an issue</button>
+        <button type="button" aria-current={view === "report" ? "page" : undefined} onClick={() => { setDetailReference(null); setView("report"); }}><Plus size={18} aria-hidden="true" />Report an issue</button>
         <button type="button" aria-current={view === "track" ? "page" : undefined} onClick={() => setView("track")}><ClipboardList size={18} aria-hidden="true" />Track requests</button>
       </nav>
 
       {view === "report" ? <section className="public-card" aria-labelledby="report-heading">
         <h2 id="report-heading">Report an issue</h2>
-        {submittedReference && <div className="public-confirmation" role="status">
-          <CheckCircle2 size={20} aria-hidden="true" />
-          <div><strong>Request sent</strong><p>Reference {submittedReference}</p></div>
-          <button type="button" className="overview-link" onClick={() => trackSubmission(submittedReference)}>Track request<ArrowRight size={16} aria-hidden="true" /></button>
-          {submittedIdentity && <div className={`public-identity-result ${submittedIdentity.status}`}>
-            <strong>{submittedIdentity.status === "identified" ? "Student ID claims verified" : "Student ID claims not verified"}</strong>
-          </div>}
-        </div>}
         <form onSubmit={submitTicket} aria-busy={submitting}>
           <fieldset className="public-fields" disabled={submitting}>
             <legend className="sr-only">Issue details</legend>
@@ -246,7 +237,7 @@ export default function PublicReporterDashboard() {
             <div className="field">
               <label htmlFor="public-student-id">Student ID <span className="public-optional">(optional)</span></label>
               <input id="public-student-id" maxLength={100} autoComplete="off" value={form.student_id} onChange={(event) => setForm({ ...form, student_id: event.target.value })} placeholder="Enter your student ID to check" />
-              <p className="field-help">We check the ID's consented claims for student verification and profile completeness. The result is shown on the public request card; the ID and claims are not saved. This verifies the entered ID's claims, not who submitted the report. Do not enter another person's ID.</p>
+              <p className="field-help">We check the ID's consented claims for student verification and profile completeness. The result is shown in the public request details; the ID and claims are not saved. This verifies the entered ID's claims, not who submitted the report. Do not enter another person's ID.</p>
             </div>
             <div className="field">
               <label htmlFor="public-ticket-ref">Helpdesk ticket reference <span className="public-optional">(optional)</span></label>
@@ -257,6 +248,11 @@ export default function PublicReporterDashboard() {
             <button type="submit" className="send-button">{submitting && <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}{submitting ? "Sending…" : "Send request"}</button>
           </fieldset>
         </form>
+        {submittedReference && <div ref={confirmation} className="public-confirmation" role="group" aria-labelledby="public-confirmation-heading" tabIndex={-1}>
+          <CheckCircle2 size={20} aria-hidden="true" />
+          <div><strong id="public-confirmation-heading">Request sent</strong><p>Maintenance received your report.</p></div>
+          <button type="button" className="overview-link" onClick={() => trackSubmission(submittedReference)}>Track request<ArrowRight size={16} aria-hidden="true" /></button>
+        </div>}
       </section> : <section className="public-card" aria-labelledby="tracker-heading" aria-busy={loading}>
         <h2 id="tracker-heading">Track requests</h2>
         <div className="public-toolbar">
@@ -265,6 +261,7 @@ export default function PublicReporterDashboard() {
           <button type="button" className="btn-switch-role public-refresh" onClick={() => void loadTickets()} disabled={loading} aria-label="Refresh requests"><RefreshCw size={18} aria-hidden="true" /></button>
         </div>
         {error && <p className="request-action-error" role="alert">{error}</p>}
+        {!loading && !error && detailReference && !detail && <p className="overview-empty" role="status">This request isn’t in the current tracker results. Try refreshing.</p>}
         {loading && !tickets.length && <p className="overview-empty" role="status">Loading requests…</p>}
         {!loading && !error && !visibleTickets.length && <div className="overview-empty public-empty">
           <p>{query || filter !== "ALL" ? "No matching requests." : "No requests yet."}</p>
@@ -277,13 +274,7 @@ export default function PublicReporterDashboard() {
               <span className={"overview-badge " + statuses[ticket.status].badge}>{statuses[ticket.status].label}</span>
             </div>
             <div className="public-ticket-footer">
-              <span className="public-ticket-meta">{ticket.category.name} · {ticket.reference_number}
-                <span className={`public-identity-badge ${ticket.student_identity_status ?? "not_checked"}`}>
-                  {ticket.student_identity_status === "identified" ? "Student ID claims verified"
-                    : ticket.student_identity_status === "not_identified" ? "Student ID claims not verified"
-                      : "Student ID not checked"}
-                </span>
-              </span>
+              <span>{ticket.category.name}</span>
               <button type="button" className="overview-link" onClick={() => setDetailReference(ticket.reference_number)}>Details<ArrowRight size={16} aria-hidden="true" /><span className="sr-only"> for {ticket.title}</span></button>
             </div>
           </article>)}
