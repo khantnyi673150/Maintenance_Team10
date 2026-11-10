@@ -1,25 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
-import { maintenanceRole, workspaceSelections, type WorkspaceSelection } from "@/lib/maintenance-role";
+import { assignedStaffCategory, maintenanceRole } from "@/lib/maintenance-role";
 import { canUseLocalDemo } from "@/lib/local-demo";
 import { CampusHeader } from "@/components/campus-brand";
 
-const accessMessage = "This account is not configured as the admin or maintenance staff account.";
+const accessMessage = "This account has no maintenance role. Contact your campus administrator.";
 
-function staffCanUseCategory(metadata: Record<string, unknown> | undefined, selection: WorkspaceSelection | "") {
-  if (!selection || selection === "Manual Review") return false;
-  // The deployment has one maintenance account, so that account can work every category.
-  if (metadata?.role === "staff") return true;
-  const categories = metadata?.maintenance_categories;
-  return metadata?.maintenance_all_categories === true
-    || (Array.isArray(categories) && categories.includes(selection))
-    || metadata?.maintenance_category === selection
-    || metadata?.category === selection;
+function accountAccessError(user: User): string | null {
+  const role = maintenanceRole(user);
+  if (!role) return accessMessage;
+  if (role === "staff" && !assignedStaffCategory(user)) {
+    return "Your staff account is waiting for a maintenance category. Contact your campus administrator.";
+  }
+  return null;
 }
 
 function signInError(code?: string): string {
@@ -33,7 +32,6 @@ export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<WorkspaceSelection | "">("");
   const [showPassword, setShowPassword] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
@@ -52,16 +50,11 @@ export default function LoginScreen() {
       subscription = client.auth.onAuthStateChange((event, session) => {
         if (!mounted.current) return;
         if (event === "PASSWORD_RECOVERY") { router.replace("/reset-password"); return; }
-        if (maintenanceRole(session?.user) && !sessionStorage.getItem("maintenance-category")) {
-          setError("Choose a workspace to continue.");
-          setCheckingSession(false);
-          return;
+        if (session) {
+          const accessError = accountAccessError(session.user);
+          if (!accessError) { router.replace("/"); return; }
+          setError(accessError);
         }
-        if (maintenanceRole(session?.user)) {
-          router.replace("/");
-          return;
-        }
-        if (session) setError(accessMessage);
         setCheckingSession(false);
       }).data.subscription;
     } catch {
@@ -86,21 +79,13 @@ export default function LoginScreen() {
       const client = createBrowserSupabaseClient();
       const { data, error: authError } = await client.auth.signInWithPassword({ email: email.trim(), password });
       if (!mounted.current) return;
+      const accessError = data.session && data.user ? accountAccessError(data.user) : accessMessage;
+      setPassword("");
       if (authError) {
         setError(signInError(authError.code));
-      } else if (!data.session || !maintenanceRole(data.user)) {
+      } else if (accessError) {
         await client.auth.signOut({ scope: "local" });
-        if (mounted.current) setError(accessMessage);
-      } else if (maintenanceRole(data.user) && !selectedCategory) {
-        await client.auth.signOut({ scope: "local" });
-        if (mounted.current) setError("Choose a workspace to sign in.");
-      } else if (maintenanceRole(data.user) === "staff" && selectedCategory !== "Manual Review" && !staffCanUseCategory(data.user.app_metadata, selectedCategory)) {
-        await client.auth.signOut({ scope: "local" });
-        if (mounted.current) setError("The maintenance staff account is not authorized for that category.");
-      } else {
-        sessionStorage.setItem("maintenance-category", selectedCategory);
-        setPassword("");
-        router.replace("/");
+        if (mounted.current) setError(accessError);
       }
     } catch {
       if (mounted.current) setError("We couldn’t sign you in. Check your connection and try again.");
@@ -117,17 +102,13 @@ export default function LoginScreen() {
       <CampusHeader action={<Link className="btn-switch-role" href="/"><ArrowLeft size={16} aria-hidden="true" />Requests</Link>} />
       <main className="login-main">
         <section className="login-card" aria-labelledby="login-title">
-          <div className="login-card-heading"><h1 id="login-title">Sign in</h1><p>Access your maintenance workspace.</p></div>
+          <div className="login-card-heading">
+            <h1 id="login-title">Sign in</h1>
+            <p>Sign in with your campus email and password.</p>
+          </div>
           <form className="login-form" onSubmit={handleSignIn} aria-busy={busy} aria-describedby={error ? "login-error" : undefined}>
             <fieldset className="login-fields" disabled={busy}>
               <legend className="sr-only">Campus account credentials</legend>
-              <div className="login-field login-category-field">
-                <label htmlFor="login-category">Workspace</label>
-                <select id="login-category" name="category" required value={selectedCategory} onChange={(event) => { setSelectedCategory(event.target.value as WorkspaceSelection | ""); setError(null); }}>
-                  <option value="">Choose a workspace</option>
-                  {workspaceSelections.map((category) => <option key={category.value} value={category.value}>{category.value}</option>)}
-                </select>
-              </div>
               <div className="login-field">
                 <label htmlFor="login-email">Email address</label>
                 <div className="login-input-wrap"><Mail size={18} aria-hidden="true" /><input id="login-email" name="email" type="email" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="you@example.com" required value={email} onChange={(event) => { setEmail(event.target.value); setError(null); }} /></div>

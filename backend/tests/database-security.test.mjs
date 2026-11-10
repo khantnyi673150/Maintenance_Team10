@@ -30,11 +30,16 @@ test("database authorization, atomic audit and partner isolation", async () => {
     const other = "00000000-0000-4000-8000-000000000002";
     const staff = "00000000-0000-4000-8000-000000000003";
     const attacker = "00000000-0000-4000-8000-000000000004";
+    const admin = "00000000-0000-4000-8000-000000000005";
+    const plumber = "00000000-0000-4000-8000-000000000006";
     const location = "00000000-0000-4000-8000-000000000010";
     const category = "00000000-0000-4000-8000-000000000011";
     await db.exec(`insert into auth.users(id,raw_app_meta_data,raw_user_meta_data) values
       ('${reporter}','{"role":"reporter"}','{}'),('${other}','{"role":"reporter"}','{}'),
-      ('${staff}','{"role":"staff"}','{}'),('${attacker}','{}','{"role":"staff"}');
+      ('${staff}','{"role":"staff","maintenance_category":"Electrical"}','{}'),
+      ('${admin}','{"role":"admin"}','{}'),
+      ('${plumber}','{"role":"staff","category":"Plumbing"}','{}'),
+      ('${attacker}','{}','{"role":"staff"}');
       insert into public.locations(id,building,floor_room) values('${location}','Test','Test');
       insert into public.categories(id,name,sla_hours) values('${category}','Electrical',8);`);
     async function actor(id, role, sql, args = []) {
@@ -92,7 +97,8 @@ test("database authorization, atomic audit and partner isolation", async () => {
     const immutable = await db.query("select to_status from public.status_history where work_order_id=$1 order by timestamp,id", [id]);
     assert.equal(immutable.rows.length, 5);
 
-    for (const name of ["010_public_reporter_dashboard", "011_admin_manual_review", "012_public_manual_location_and_category"]) {
+    // 012 installs the review column even on databases without the 011 helpers.
+    for (const name of ["010_public_reporter_dashboard", "012_public_manual_location_and_category"]) {
       await db.exec(readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), "utf8"));
     }
     const makeReview = async () => (await db.query(
@@ -106,6 +112,7 @@ test("database authorization, atomic audit and partner isolation", async () => {
     await db.exec(readFileSync(new URL("../supabase/migrations/015_helpdesk_integration.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("../supabase/migrations/016_helpdesk_direct_creation.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("../supabase/migrations/017_helpdesk_category.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("../supabase/migrations/018_admin_staff_access.sql", import.meta.url), "utf8"));
     const direct = await db.query("select public.create_public_work_order('Leak','Water leaking','Plumbing','Test') as result");
     assert.equal(direct.rows[0].result.classification_status, "classified");
     assert.equal(direct.rows[0].result.student_identity_status, "not_identified");
@@ -124,17 +131,32 @@ test("database authorization, atomic audit and partner isolation", async () => {
     const testCategory = (await db.query("insert into public.categories(name,sla_hours) values('Plumbing API Test',8) returning id")).rows[0].id;
     const classifySql = "select * from public.classify_work_order($1,$2)";
     await assert.rejects(actor(reporter, "reporter", classifySql, [pending, category]), { code: "42501" });
-    await assert.rejects(actor(staff, "staff", classifySql, [pending, testCategory]), { code: "22023" });
-    await assert.rejects(actor(staff, "staff", "select public.assign_work_order($1,$2)", [pending, staff]), { code: "23514" });
+    await assert.rejects(actor(staff, "staff", classifySql, [pending, category]), { code: "42501" });
+    await assert.rejects(actor(admin, "admin", classifySql, [pending, testCategory]), { code: "22023" });
+    const readSql = "select id from public.work_orders where id=$1";
+    const plumbingOrder = direct.rows[0].result.reference_number;
+    assert.equal((await actor(staff, "staff", readSql, [plumbingOrder])).rows.length, 0);
+    assert.equal((await actor(plumber, "staff", readSql, [plumbingOrder])).rows.length, 1);
+    assert.equal((await actor(staff, "staff", readSql, [pending])).rows.length, 0);
+    assert.equal((await actor(admin, "admin", readSql, [pending])).rows.length, 1);
+    const historySql = "select id from public.status_history where work_order_id=$1";
+    assert.equal((await actor(staff, "staff", historySql, [plumbingOrder])).rows.length, 0);
+    assert.equal((await actor(plumber, "staff", historySql, [plumbingOrder])).rows.length, 1);
+    await assert.rejects(actor(staff, "staff", "select public.assign_work_order($1,$2)", [pending, staff]), { code: "P0002" });
     assert.equal((await db.query("select count(*)::int as n from public.assignments where work_order_id=$1", [pending])).rows[0].n, 0);
-    const classified = (await actor(staff, "staff", classifySql, [pending, category])).rows[0];
+    const classified = (await actor(admin, "admin", classifySql, [pending, category])).rows[0];
     assert.equal(classified.status, "OPEN");
     assert.equal(classified.classification_status, "classified");
     assert.equal(classified.category_id, category);
     assert.equal(await countHistory(pending), 2);
-    await assert.rejects(actor(staff, "staff", classifySql, [pending, category]), { code: "P0002" });
+    await assert.rejects(actor(admin, "admin", classifySql, [pending, category]), { code: "P0002" });
+    await assert.rejects(actor(staff, "staff", "select public.assign_work_order($1,$2)", [pending, plumber]), { code: "23514" });
     await actor(staff, "staff", "select public.assign_work_order($1,$2)", [pending, staff]);
-    assert.equal((await actor(staff, "staff", classifySql, [previouslyAssigned, category])).rows[0].status, "ASSIGNED");
+    assert.equal((await actor(admin, "admin", classifySql, [previouslyAssigned, category])).rows[0].status, "ASSIGNED");
+
+    await db.query("update auth.users set raw_app_meta_data=jsonb_build_object('role','staff','maintenance_category','Plumbing') where id=$1", [staff]);
+    assert.equal((await actor(staff, "staff", readSql, [pending])).rows.length, 0);
+    assert.equal((await actor(staff, "staff", readSql, [plumbingOrder])).rows.length, 1);
 
     await db.query("update auth.users set raw_app_meta_data='{}' where id=$1", [staff]);
     assert.equal((await actor(staff, "staff", "select public.current_user_is_staff() as staff")).rows[0].staff, false,

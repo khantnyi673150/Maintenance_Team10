@@ -3,7 +3,7 @@ import "server-only";
 import type { User, SupabaseClient } from "@supabase/supabase-js";
 import { createRequestSupabaseClient } from "@/lib/supabase-server";
 import { errorResponse } from "@/lib/api";
-import { isTrustedCategorySelection, resolveTrustedCategory, resolveTrustedRole, secretsMatch, type MaintenanceCategory } from "@/lib/security";
+import { resolveTrustedCategory, resolveTrustedRole, secretsMatch, type MaintenanceCategory } from "@/lib/security";
 
 export type AuthContext = {
   user: User;
@@ -41,16 +41,15 @@ export async function requireAuth(
         response: errorResponse(403, "FORBIDDEN", "The user role is not allowed"),
       };
     }
-    const selectedCategory = request.headers.get("x-maintenance-category");
     const category = resolveTrustedCategory(data.user);
-    if (selectedCategory && (role !== "staff" || !isTrustedCategorySelection(data.user, selectedCategory))) {
-      return { response: errorResponse(403, "CATEGORY_NOT_ALLOWED", "The selected maintenance category is not authorized") };
+    if (role === "staff" && !category) {
+      return { response: errorResponse(403, "CATEGORY_REQUIRED", "A campus administrator must assign this staff account a category") };
     }
-
-    const requestCategory: MaintenanceCategory | null = role === "staff" && selectedCategory && isTrustedCategorySelection(data.user, selectedCategory)
-      ? selectedCategory as MaintenanceCategory
-      : category;
-    return { context: { user: data.user, role, category: role === "staff" ? requestCategory : null, supabase, authDurationMs: performance.now() - authStartedAt } };
+    const requestedCategory = request.headers.get("x-maintenance-category");
+    if (requestedCategory && requestedCategory !== category) {
+      return { response: errorResponse(403, "CATEGORY_NOT_ALLOWED", "The requested maintenance category is not authorized") };
+    }
+    return { context: { user: data.user, role, category, supabase, authDurationMs: performance.now() - authStartedAt } };
   } catch {
     return { response: errorResponse(503, "AUTH_UNAVAILABLE", "Authentication is temporarily unavailable") };
   }

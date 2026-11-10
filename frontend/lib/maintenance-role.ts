@@ -1,6 +1,6 @@
 export type MaintenanceRole = "reporter" | "staff" | "admin";
 export type MaintenanceCategory = "Plumbing" | "Electrical" | "HVAC" | "Safety";
-export type WorkspaceSelection = MaintenanceCategory | "Manual Review";
+type AccountMetadata = { app_metadata?: Record<string, unknown> };
 
 export const maintenanceCategories: { value: MaintenanceCategory; description: string }[] = [
   { value: "Plumbing", description: "Water supply, pipes, drainage" },
@@ -9,14 +9,15 @@ export const maintenanceCategories: { value: MaintenanceCategory; description: s
   { value: "Safety", description: "Hazards and safety-related issues" },
 ];
 
-export const workspaceSelections: { value: WorkspaceSelection; description: string }[] = [
-  ...maintenanceCategories,
-  { value: "Manual Review", description: "Admin classification queue" },
-];
-
 // UI routing uses the same administrator-controlled claim as the API.
 // The backend still verifies authorization on every protected request.
-export function maintenanceRole(user: { app_metadata?: Record<string, unknown> } | null | undefined): MaintenanceRole | null {
+export function maintenanceRole(user: AccountMetadata | null | undefined): MaintenanceRole | null {
   const role = user?.app_metadata?.role;
   return role === "reporter" || role === "staff" || role === "admin" ? role : null;
+}
+
+export function assignedStaffCategory(user: AccountMetadata): MaintenanceCategory | null {
+  if (maintenanceRole(user) !== "staff") return null;
+  const assigned = user.app_metadata?.maintenance_category ?? user.app_metadata?.category;
+  return maintenanceCategories.find(({ value }) => value === assigned)?.value ?? null;
 }

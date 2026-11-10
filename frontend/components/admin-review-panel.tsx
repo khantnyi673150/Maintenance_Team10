@@ -17,8 +17,8 @@ type ReviewItem = {
   locations?: { building: string; floor_room: string } | null;
 };
 
-export default function AdminReviewPanel({ token, categories, locations, onOpenReview }: {
-  token: string; categories: CategoryItem[]; locations: LocationItem[]; onOpenReview?: () => void;
+export default function AdminReviewPanel({ token, categories, locations }: {
+  token: string; categories: CategoryItem[]; locations: LocationItem[];
 }) {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function AdminReviewPanel({ token, categories, locations, onOpenR
 
   async function classify(item: ReviewItem) {
     const categoryId = selectedCategories[item.id];
-    if (onOpenReview || loading || saving || !assignableCategories.some((category) => category.id === categoryId)) return;
+    if (loading || saving || !assignableCategories.some((category) => category.id === categoryId)) return;
     setSaving(item.id);
     setError(null);
     try {
@@ -93,9 +93,7 @@ export default function AdminReviewPanel({ token, categories, locations, onOpenR
   return <section className="admin-review-panel" aria-label="Review queue" aria-busy={loading}>
     <div className="overview-panel-heading">
       <p className="review-count" role="status">{loading ? "Loading…" : error && !items.length ? "Queue unavailable" : `${items.length} awaiting review`}</p>
-      {onOpenReview
-        ? <button type="button" className="overview-link" onClick={onOpenReview}>Open Manual Review<ArrowRight size={17} aria-hidden="true" /></button>
-        : <button type="button" className="btn-switch-role" onClick={() => void load()} disabled={loading || !!saving}><RefreshCw size={17} aria-hidden="true" />Refresh</button>}
+      <button type="button" className="btn-switch-role" onClick={() => void load()} disabled={loading || !!saving}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
     </div>
     {error && <div className="request-error" role="alert"><TriangleAlert size={20} aria-hidden="true" /><p>{error}</p></div>}
     {!loading && !error && !items.length && <div className="request-empty"><CheckCircle2 size={22} aria-hidden="true" /><p>No requests need review.</p></div>}
@@ -104,10 +102,10 @@ export default function AdminReviewPanel({ token, categories, locations, onOpenR
         <div><h2>{item.title}</h2><p className="request-row-meta"><span><MapPin size={15} aria-hidden="true" />{locationLabel(item)}</span></p></div>
         <button type="button" className="overview-link" onClick={() => setDetail(item)}>Details<ArrowRight size={16} aria-hidden="true" /><span className="sr-only"> for {item.title}</span></button>
       </div>
-      {!onOpenReview && <div className="review-actions">
+      <div className="review-actions">
         <div className="field"><label htmlFor={`review-${item.id}`}>Category</label><select id={`review-${item.id}`} value={selectedCategories[item.id] ?? ""} disabled={loading || !!saving} onChange={(event) => setSelectedCategories((current) => ({ ...current, [item.id]: event.target.value }))}><option value="">Choose a category</option>{assignableCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
         <button type="button" className="send-button" disabled={!selectedCategories[item.id] || loading || !!saving} onClick={() => void classify(item)}>{saving === item.id ? "Assigning…" : "Assign"}</button>
-      </div>}
+      </div>
     </article>)}</div>
     {detail && <AccessibleDialog id="review-details" title="Request details" onClose={() => setDetail(null)}>
       <h3 className="request-detail-title">{detail.title}</h3>
