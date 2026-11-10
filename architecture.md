@@ -5,6 +5,8 @@ The platform uses a small monorepo with two independently runnable Next.js appli
 
 ## Architecture Diagram
 
+> **Superseded:** the diagram below predates the public reporting path, admin role, Helpdesk (Team 14) and Student Identity integrations. See [`diagrams/system-architecture.md`](diagrams/system-architecture.md) for the current system architecture.
+
 ```text
 ┌─────────────────┐       HTTPS       ┌───────────────────────────────┐
 │ Next.js Client  ├──────────────────▶│      Next.js API Gateway      │
