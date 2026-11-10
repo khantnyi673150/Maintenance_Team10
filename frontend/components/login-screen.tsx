@@ -99,7 +99,7 @@ export default function LoginScreen() {
 
   return (
     <div className="login-page">
-      <CampusHeader action={<Link className="btn-switch-role" href="/"><ArrowLeft size={16} aria-hidden="true" />Requests</Link>} />
+      <CampusHeader action={<Link className="btn-switch-role" href="/"><ArrowLeft size={16} aria-hidden="true" />Home</Link>} />
       <main className="login-main">
         <section className="login-card" aria-labelledby="login-title">
           <div className="login-card-heading">

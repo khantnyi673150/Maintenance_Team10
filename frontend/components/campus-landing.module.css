@@ -1,0 +1,147 @@
+.page {
+  min-height: 100dvh;
+  background: var(--background);
+}
+
+.page > :global(.campus-header) {
+  border-bottom: 3px solid var(--brand-gold);
+}
+
+.page :global(.campus-brand-icon) {
+  background: var(--primary);
+}
+
+.page :global(.campus-brand strong) {
+  font-size: clamp(14px, 2.3vw, 18px);
+}
+
+.page :global(.campus-brand div > span) {
+  font-size: 12px;
+}
+
+.main {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: clamp(20px, 5vw, 56px) clamp(12px, 4vw, 32px) 48px;
+}
+
+.hero {
+  padding: clamp(24px, 4.25vw, 58px);
+  border-bottom: 4px solid var(--brand-gold);
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--card);
+}
+
+.hero h1 {
+  max-width: none;
+  margin: 0;
+  color: inherit;
+  font-size: clamp(30px, 4.3vw, 54px);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.hero p {
+  max-width: 64ch;
+  margin: 14px 0 0;
+  color: var(--on-brand-muted);
+  font-size: clamp(15px, 2vw, 18px);
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.actions :is(.primary, .secondary) {
+  justify-content: center;
+  min-height: 46px;
+  padding-inline: 16px;
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.actions .primary {
+  background: var(--card);
+  color: var(--primary);
+}
+
+.actions .primary:hover {
+  background: var(--gold-surface);
+}
+
+.actions .secondary {
+  border-color: var(--gold-light);
+  background: transparent;
+  color: var(--card);
+}
+
+.actions .secondary:hover {
+  background: var(--brand-strong);
+  color: var(--card);
+  box-shadow: none;
+  transform: none;
+}
+
+.actions :is(.primary, .secondary):focus-visible {
+  outline: 2px solid var(--gold-light);
+  outline-offset: 3px;
+}
+
+.progress {
+  margin-top: clamp(24px, 4vw, 44px);
+}
+
+.progress h2 {
+  margin: 0 0 14px;
+  font-size: clamp(21px, 3vw, 28px);
+  font-weight: 700;
+}
+
+.steps {
+  --stage-icon-size: clamp(25px, 4vw, 42px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: clamp(18px, 3vw, 28px) clamp(8px, 3vw, 28px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  list-style: none;
+}
+
+.steps li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding-inline: 4px;
+  font-size: clamp(12px, 2vw, 16px);
+  font-weight: 600;
+  text-align: center;
+}
+
+.steps li:not(:last-child)::after {
+  position: absolute;
+  top: calc(var(--stage-icon-size) / 2);
+  inset-inline-start: calc(50% + var(--stage-icon-size));
+  inset-inline-end: calc(-50% + var(--stage-icon-size));
+  height: 2px;
+  border-radius: 1px;
+  background: var(--brand-gold);
+  content: "";
+}
+
+.stepIcon {
+  width: var(--stage-icon-size);
+  height: var(--stage-icon-size);
+  color: var(--primary);
+}
+
+@media (max-width: 520px) {
+  .actions { flex-direction: column; }
+}
