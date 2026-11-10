@@ -1,6 +1,6 @@
 .campus-header {
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
+  background: var(--surface-elevated);
+  border-bottom: 1px solid var(--brand-gold);
 }
 
 .campus-header-inner {
@@ -21,7 +21,7 @@
   height: 38px;
   border-radius: 10px;
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .campus-brand strong { display: block; font-size: 15px; font-weight: 700; line-height: 1.3; }
 .campus-brand div > span { display: block; color: var(--text-secondary); font-size: 11px; line-height: 1.45; }
@@ -55,7 +55,7 @@
   font-weight: 600;
 }
 .public-navigation button:hover { background: var(--surface-subtle); }
-.public-navigation button[aria-current="page"] { background: #fbe9ed; color: var(--primary); }
+.public-navigation button[aria-current="page"] { background: var(--brand-soft); color: var(--primary); }
 .public-navigation svg { flex-shrink: 0; }
 .public-card { padding: clamp(16px, 4vw, 28px); border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
 .public-card > h2 { margin: 0 0 18px; font-size: 21px; font-weight: 700; }
@@ -79,14 +79,14 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: #fbe9ed;
+  background: var(--brand-soft);
   font-size: 14px;
 }
-.public-confirmation { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; margin-top: 16px; border-radius: var(--radius); color: #246846; background: #edf7f0; font-size: 14px; }
+.public-confirmation { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; margin-top: 16px; border-radius: var(--radius); color: var(--success); background: var(--success-soft); font-size: 14px; }
 .public-confirmation > div { flex: 1 1 130px; min-width: 0; }
 .public-confirmation p { margin: 2px 0 0; overflow-wrap: anywhere; }
-.public-confirmation .overview-link { color: #246846; }
-.public-optional { color: #6f6873; font-weight: 400; }
+.public-confirmation .overview-link { color: var(--success); }
+.public-optional { color: var(--text-secondary); font-weight: 400; }
 .public-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(136px, 170px) 44px; gap: 8px; margin-bottom: 16px; }
 .public-search { position: relative; }
 .public-search svg { position: absolute; left: 12px; top: 13px; color: var(--text-secondary); pointer-events: none; }

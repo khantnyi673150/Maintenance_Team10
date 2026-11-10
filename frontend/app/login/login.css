@@ -16,10 +16,10 @@
 .login-forgot { display: flex; justify-content: flex-end; margin: -3px 0 16px; }
 .login-forgot a, .recovery-links a, .recovery-success a { color: var(--primary); font-size: 14px; font-weight: 600; }
 .login-forgot a:hover, .recovery-links a:hover, .recovery-success a:hover { text-decoration: underline; }
-.login-submit { display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 10px; border-radius: var(--radius); color: white; background: var(--primary); font-weight: 600; }
+.login-submit { display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 10px; border-radius: var(--radius); color: var(--primary-foreground); background: var(--primary); font-weight: 600; }
 .login-submit:hover:not(:disabled) { background: var(--brand-strong); }
 .login-submit:disabled { opacity: .65; }
-.login-error { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; padding: 12px; border-radius: 8px; color: #8e2530; background: #fff3f2; font-size: 14px; }
+.login-error { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; padding: 12px; border-radius: 8px; color: var(--destructive); background: var(--destructive-soft); font-size: 14px; }
 .login-error svg { flex-shrink: 0; }
 .login-error p { margin: 0; }
 .login-account-note { margin: 18px 0 0; color: var(--text-secondary); font-size: 13px; }

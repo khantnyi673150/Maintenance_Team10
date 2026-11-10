@@ -16,7 +16,7 @@ import WorkspaceShell, { type WorkspaceTab } from "@/components/workspace-shell"
 import MaintenanceOverview from "@/components/maintenance-overview";
 import RepairProgress from "@/components/repair-progress";
 import RequestDetailSummary from "@/components/request-detail-summary";
-import PublicReporterDashboard from "@/components/public-reporter-dashboard";
+import CampusLanding from "@/components/campus-landing";
 import AdminReviewPanel from "@/components/admin-review-panel";
 import StudentIdentityTest from "@/components/student-identity-test";
 import type { DashboardData } from "@/lib/dashboard-view";
@@ -210,7 +210,7 @@ export default function MaintenanceApp() {
     }
     let supabase;
     try { supabase = createBrowserSupabaseClient(); } catch {
-      // The public reporter dashboard does not require Supabase configuration.
+      // The public landing page does not require Supabase configuration.
       setSessionReady(true);
       return;
     }
@@ -630,7 +630,7 @@ export default function MaintenanceApp() {
     </main>
   );
 
-  if (!token && !demoMode) return <PublicReporterDashboard />;
+  if (!token && !demoMode) return <CampusLanding />;
 
   return (
     <WorkspaceShell activeTab={activeTab} role={role} name={displayName || currentEmail} demo={demoMode} maintenanceCategory={maintenanceCategory} onNavigate={(tab) => {

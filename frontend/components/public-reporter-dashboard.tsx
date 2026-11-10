@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, MapPin, Plus, RefreshCw, Search, Sparkles } from "lucide-react";
 import AccessibleDialog from "@/components/accessible-dialog";
@@ -38,7 +39,7 @@ const emptyForm = { title: "", description: "", category: "", location: "", stud
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
 
 export default function PublicReporterDashboard() {
-  const [view, setView] = useState<"report" | "track">("report");
+  const view = useSearchParams().get("view") === "track" ? "track" : "report";
   const [tickets, setTickets] = useState<PublicTicket[]>([]);
   const [filter, setFilter] = useState<"ALL" | keyof typeof statuses>("ALL");
   const [search, setSearch] = useState("");
@@ -135,7 +136,13 @@ export default function PublicReporterDashboard() {
     setFilter("ALL");
     setLoading(true);
     setDetailReference(reference);
-    setView("track");
+    showView("track");
+  }
+
+  function showView(next: "report" | "track") {
+    if (next === view) return;
+    if (next === "report") setDetailReference(null);
+    window.history.pushState(null, "", next === "track" ? "/requests?view=track" : "/requests");
   }
 
   async function submitTicket(event: FormEvent<HTMLFormElement>) {
@@ -174,15 +181,15 @@ export default function PublicReporterDashboard() {
   }
 
   return <div className="public-dashboard">
-    <CampusHeader action={<Link className="btn-switch-role" href="/login">Staff sign in<ArrowRight size={16} aria-hidden="true" /></Link>} />
+    <CampusHeader homeHref="/" action={<Link className="btn-switch-role" href="/login">Staff sign in<ArrowRight size={16} aria-hidden="true" /></Link>} />
     <main className="public-main">
       <div className="public-page-heading">
         <h1>Maintenance requests</h1>
         <p>Report a campus issue or check a repair.</p>
       </div>
       <nav className="public-navigation" aria-label="Public maintenance">
-        <button type="button" aria-current={view === "report" ? "page" : undefined} onClick={() => { setDetailReference(null); setView("report"); }}><Plus size={18} aria-hidden="true" />Report an issue</button>
-        <button type="button" aria-current={view === "track" ? "page" : undefined} onClick={() => setView("track")}><ClipboardList size={18} aria-hidden="true" />Track requests</button>
+        <button type="button" aria-current={view === "report" ? "page" : undefined} onClick={() => showView("report")}><Plus size={18} aria-hidden="true" />Report an issue</button>
+        <button type="button" aria-current={view === "track" ? "page" : undefined} onClick={() => showView("track")}><ClipboardList size={18} aria-hidden="true" />Track requests</button>
       </nav>
 
       {view === "report" ? <section className="public-card" aria-labelledby="report-heading">
@@ -281,7 +288,7 @@ export default function PublicReporterDashboard() {
         </div>
       </section>}
 
-      {detail && <AccessibleDialog id="public-ticket-details" title="Request details" onClose={() => setDetailReference(null)}>
+      {view === "track" && detail && <AccessibleDialog id="public-ticket-details" title="Request details" onClose={() => setDetailReference(null)}>
         <h3 className="request-detail-title">{detail.title}</h3>
         <p className="dialog-description">{detail.description}</p>
         <dl className="public-detail-list">
