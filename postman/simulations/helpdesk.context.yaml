@@ -23,7 +23,25 @@ assumptions:
     verification: No live Helpdesk call has been made. Signature, duplicate ID, database retry scheduling and permissions are covered separately by local Node and isolated PostgreSQL tests.
     source: backend/tests/helpdesk.test.ts; backend/tests/helpdesk-database.test.mjs
     updated_at: "2026-11-09"
+  - id: cloud-trigger-local-validation
+    status: supported
+    claim: The proposed database scheduler requests delivery on enqueue and when retries become due, retaining events across rollbacks and request-queue failures in isolated PostgreSQL.
+    reason: Migration 019 passed isolated PostgreSQL tests with SQL stand-ins for the managed Supabase extensions. The existing real HTTP sender and persistent queue tests still pass.
+    verification: On 2026-11-11, using fingerprint cloud-delivery-local-2026-11-11, ran test:helpdesk:cloud and test:helpdesk:db successfully. Also reran the Postman simulation; the sender returned 200 in 59 ms, 500 in 6 ms, and null after 3005 ms for the timeout. The simulation request event confirmed the signed POST reached the accepted member. Injected failures were checked from caller outcomes. These checks do not prove managed background-extension execution or live activation.
+    source: backend/supabase/migrations/019_helpdesk_cloud_delivery.sql; backend/tests/helpdesk-cloud.test.mjs; backend/tests/helpdesk-database.test.mjs; backend/scripts/test-helpdesk-simulation.mjs
+    updated_at: "2026-11-11"
+  - id: cloud-scheduler-live-activation
+    status: unknown
+    claim: The production Supabase project is configured to trigger Helpdesk delivery independently of the laptop.
+    reason: The browser permission gate declined access to supabase.com. Migration 019 and Vault configuration were prepared but were not applied remotely. The Windows task remains disabled.
+    verification: No production migration, cloud scheduler activation or live delivery test was performed in the 2026-11-11 cloud-delivery session. Complete HELPDESK_CLOUD_SETUP.md and verify both HTTP results and outbox delivery before claiming activation.
+    source: HELPDESK_CLOUD_SETUP.md; backend/scripts/verify-helpdesk-cloud.sql
+    updated_at: "2026-11-11"
 fingerprints:
+  - id: cloud-delivery-local-2026-11-11
+    date: "2026-11-11"
+    commit: "414c9868938bc2e10dbe4d6194a50ae78d99264d (dirty tree: cloud migration, tests and setup guide)"
+    cli: "1.73.0"
   - id: local-contract
     date: "2026-11-09"
     commit: null
