@@ -4,6 +4,11 @@ The code supports Team 14 proposal v0.4. Deployment and a joint test with Team 1
 
 ## Setup
 
+For laptop-independent delivery, follow [Helpdesk cloud setup](HELPDESK_CLOUD_SETUP.md).
+Migration 019 adds an immediate post-commit database trigger plus Supabase Cron
+retries, calling the existing deployed worker. It starts disabled until configured
+and activated in Supabase. The Windows scheduler below is a local fallback only.
+
 1. After migration 014, apply `015_helpdesk_integration.sql`, `016_helpdesk_direct_creation.sql`, then `017_helpdesk_category.sql`. Migration 016 enables direct creation; migration 017 adds the optional category field. Apply migration 017 before deploying category support.
 2. Set private backend environment variables from `backend/.env.example`:
    - `HELPDESK_API_KEY`: the dedicated lookup and direct-creation credential shared with Helpdesk.
